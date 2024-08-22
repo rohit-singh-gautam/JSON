@@ -6,7 +6,7 @@ find_package(GTest CONFIG REQUIRED)
 
 enable_testing()
 
-add_compile_options(-Wall -Werror -Wpedantic -Wextra -Weffc++ -Wsuggest-override)
+add_compile_options(-Wall -Werror -Wpedantic -Wextra -Weffc++ -Wsuggest-override -fanalyzer)
 
 add_executable(JSONTest src/jsontest.cpp)
 

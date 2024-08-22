@@ -10,7 +10,7 @@
 #include <vector>
 #include <memory>
 #include <stdexcept>
-#include <unordered_map>
+#include <map>
 #include <format>
 #include <charconv>
 
@@ -58,8 +58,8 @@ enum class exception_t {
 #undef ERROR_T_ENTRY
 };
 
-constexpr std::string_view to_string_view(const exception_t &val) {
-    const std::string_view exception_string[] = {
+constexpr const std::string to_string(const exception_t &val) {
+    const std::string exception_string[] = {
     #define ERROR_T_ENTRY(x, y) std::string(y, sizeof(y) - 1),
         ERROR_T_LIST
     #undef ERROR_T_ENTRY
@@ -70,12 +70,13 @@ constexpr std::string_view to_string_view(const exception_t &val) {
 
 class Exception : public std::exception {
 protected:
-    const exception_t value;
+    exception_t value;
 
 public:
     Exception(const exception_t value) : value { value } { }
+    Exception(Exception &&rhs) : std::exception { std::move(rhs) }, value {rhs.value} { }
 
-    const char* what() const noexcept override { return to_string_view(value).data(); }
+    const char* what() const noexcept override { return to_string(value).data(); }
 };
 
 class NotArraryOrMapException : public Exception {
@@ -118,18 +119,24 @@ public:
     ObjecctOutOfRangeException() : Exception { exception_t::OBJECT_OUT_OF_RANGE } { }
 };
 
+class Value;
 class JsonParseException : public Exception {
+    friend class Value;
+    const char *start_position { };
     const char *current_position;
-    const size_t buffer_remaining;
+    size_t buffer_remaining;
 public:
     JsonParseException(const char *current_position, const size_t buffer_remaining, const exception_t except)
         : Exception { except }, current_position { current_position }, buffer_remaining { buffer_remaining } { }
+    JsonParseException(JsonParseException &&rhs) : Exception { std::move(rhs) }, start_position { rhs.start_position }, current_position { rhs.current_position }, buffer_remaining { rhs.buffer_remaining } {
+        rhs.start_position = nullptr;
+        rhs.current_position = nullptr;
+        rhs.buffer_remaining = 0;
+    }
     JsonParseException(const JsonParseException &) = delete;
     JsonParseException &operator=(const JsonParseException &) = delete;
 
-    const char* what() const noexcept override { return "Bad Json format"; }
-
-    std::string to_string(const char *start_position) {
+    std::string to_string() const {
         std::string errstr { "JSON Parser failed at: " };
 
         if (current_position < start_position) {
@@ -164,7 +171,7 @@ public:
             }
 
             errstr += " <-- failed here ";
-            errstr += to_string_view(value);
+            errstr += rohit::json::to_string(value);
             errstr += " --| ";
         }
 
@@ -179,6 +186,12 @@ public:
         }
 
         return errstr;
+    }
+
+    const char* what() const noexcept override { 
+        thread_local static std::string value { };
+        value = to_string();
+        return value.c_str();
     }
 
 };
@@ -257,7 +270,15 @@ public:
     virtual std::string &GetString() { throw NotStringException { }; }
     virtual const std::string &GetString() const { throw NotStringException { }; }
 
-    static Value *Parse(const char *&text, size_t &size);
+    static Value *Parse(const char *&text, size_t &size) {
+        try {
+            return ParseInternal(text, size);
+        } catch(JsonParseException &jsonexp) {
+            jsonexp.start_position = text;
+            throw std::move(jsonexp);
+        }
+    }
+
     static Value *Parse(const std::string &text) { 
         const char *textptr = text.c_str();
         size_t size = text.size();
@@ -265,6 +286,7 @@ public:
     }
 
 protected:
+    static Value *ParseInternal(const char *&text, size_t &size);
     template <int sign = 0>
     static constexpr Value *ParseIntegerOrFloat(const char *&text, size_t &size);
 
@@ -405,7 +427,7 @@ public:
         SkipWS(text, size);
         if (*text != ']') {
             for(;;) {
-                auto value = Value::Parse(text, size);
+                auto value = Value::ParseInternal(text, size);
                 array->values.emplace_back(value);
                 if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
                 if (*text == ']') break;
@@ -443,7 +465,8 @@ public:
 
 
 class Object : public Value {
-    std::unordered_map<std::string, std::unique_ptr<Value>> values { };
+    // unordered_map fails with -fanalyzer
+    std::map<std::string, std::unique_ptr<Value>> values { };
     
 public:
 
@@ -468,7 +491,7 @@ public:
         SkipWS(text, size);
         if (*text != ':') throw JsonParseException(text, size, exception_t::INCORRECT_OBJECT_MEMBER_SEPARATOR);
         ++text; --size;
-        auto value = Value::Parse(text, size);
+        auto value = Value::ParseInternal(text, size);
         if (key.empty()) throw JsonParseException(text, size, exception_t::OBJECT_NULL_KEY);
         auto itr = obj->values.find(key);
         if (itr != std::end(obj->values)) throw JsonParseException(text, size, exception_t::OBJECT_DUPLICATE_KEY);
@@ -503,7 +526,7 @@ constexpr Value *Value::ParseIntegerOrFloat(const char *&text, size_t &size) {
     if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
     auto itr = text;
     auto end = text + size;
-    if (*itr <= '0' || *itr >= '9') throw JsonParseException { itr, size, exception_t::BAD_NUMBER_FORMAT };
+    if (*itr < '0' || *itr > '9') throw JsonParseException { itr, size, exception_t::BAD_NUMBER_FORMAT };
     ++itr;
     // Find text, float, string or error
     bool is_float = false;
@@ -515,7 +538,7 @@ constexpr Value *Value::ParseIntegerOrFloat(const char *&text, size_t &size) {
             is_float = true;
         }
         if (IsWS(*itr) || *itr == ',' || *itr == ']' || *itr == '}') break;
-        if (*itr <= '0' || *itr >= '9') throw JsonParseException { itr, size, exception_t::BAD_NUMBER_FORMAT };
+        if (*itr < '0' || *itr > '9') throw JsonParseException { itr, size, exception_t::BAD_NUMBER_FORMAT };
         ++itr;
     };
 
@@ -535,7 +558,7 @@ constexpr Value *Value::ParseIntegerOrFloat(const char *&text, size_t &size) {
 }
 
 
-Value *Value::Parse(const char *&text, size_t &size) {
+Value *Value::ParseInternal(const char *&text, size_t &size) {
     Value::SkipWS(text, size);
     switch(*text) {
     case BeginArray: {
