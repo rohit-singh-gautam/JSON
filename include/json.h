@@ -48,6 +48,7 @@ namespace rohit::json {
     ERROR_T_ENTRY(INCORRECT_OBJECT_MEMBER_SEPARATOR, "Incorrect separator between Object member, it must be ':'") \
     ERROR_T_ENTRY(OBJECT_NULL_KEY, "Empty key is not allowed in object") \
     ERROR_T_ENTRY(OBJECT_DUPLICATE_KEY, "Duplicate key is not allowed in object") \
+    ERROR_T_ENTRY(OBJECT_KEY_STRING_EXPECTED, "Object key is expected to be string") \
     ERROR_T_ENTRY(INCORRECT_OBJECT_DELIMITER, "Incorrect object delimiter") \
     LIST_DEFINITION_END
 
@@ -164,7 +165,7 @@ public:
 
             errstr += " <-- failed here ";
             errstr += to_string_view(value);
-            errstr += "--| ";
+            errstr += " --| ";
         }
 
         for(size_t index { 0 }; index < std::min(16UL, buffer_remaining); ++index) {
@@ -268,53 +269,52 @@ protected:
     static constexpr Value *ParseIntegerOrFloat(const char *&text, size_t &size);
 
     static constexpr std::string ParseString(const char *&text, size_t &size) {
-    if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
-        auto itr = text;
+        if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
         std::string value { };
-        while(*itr != '"') {
-            if (*itr == '\\') {
-                ++itr;
+        while(*text != '"') {
+            if (*text == '\\') {
+                ++text;
                 --size;
                 if (size < 2) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
-                switch(*itr) {
+                switch(*text) {
                 case '"':
                 case '\\':
-                    value.push_back(*itr);
-                    ++itr; --size;
+                    value.push_back(*text);
+                    ++text; --size;
                     break;
                 case 'b':
                     value.push_back('\b');
-                    ++itr; --size;
+                    ++text; --size;
                     break;
                 case 'f':
                     value.push_back('\f');
-                    ++itr; --size;
+                    ++text; --size;
                     break;
                 case 'n':
                     value.push_back('\n');
-                    ++itr; --size;
+                    ++text; --size;
                     break;
                 case 'r':
                     value.push_back('\r');
-                    ++itr; --size;
+                    ++text; --size;
                     break;
                 case 't':
                     value.push_back('t');
-                    ++itr; --size;
+                    ++text; --size;
                     break;
                 case 'u': {
-                    ++itr; --size;
+                    ++text; --size;
                     if (size < 6) throw JsonParseException { text, size, exception_t::INCORRECT_ESCAPE };
                     char val { 0 };
                     auto newsize = size - 4;
                     do {
-                        auto ch = *itr;
+                        auto ch = *text;
                         val *= 10;
                         if (ch >= '0' && ch <= '9') val += ch - '0';
                         else if (ch >= 'a' && ch <= 'f') val += 10 + ch - 'a';
                         else if (ch >= 'A' && ch <= 'F') val += 10 + ch - 'A';
                         else throw JsonParseException { text, size, exception_t::INCORRECT_ESCAPE };
-                        ++itr; --size;
+                        ++text; --size;
                     } while(size != newsize);
                     value.push_back(val);
                     break;
@@ -325,12 +325,12 @@ protected:
                 }
 
             } else {
-                value.push_back(*itr);
-                ++itr; --size;
+                value.push_back(*text);
+                ++text; --size;
                 if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
             }
         }
-
+        ++text; --size;
         return value;
     }
 };
@@ -412,6 +412,7 @@ public:
                 if (*text != ',') {
                     throw JsonParseException { text, size, exception_t::INCORRECT_ARRAY_DELIMITER };
                 }
+                ++text; --size;
                 SkipWS(text, size);
             }
         }
@@ -434,7 +435,6 @@ public:
 
     type GetType() const noexcept override { return type::String; }
 
-    // TODO implement escape character
     static constexpr Value *Parse(const char *&text, size_t &size) {
         auto value = ParseString(text, size);
         return new String { std::move(value) };
@@ -468,9 +468,7 @@ public:
         SkipWS(text, size);
         if (*text != ':') throw JsonParseException(text, size, exception_t::INCORRECT_OBJECT_MEMBER_SEPARATOR);
         ++text; --size;
-        SkipWS(text, size);
         auto value = Value::Parse(text, size);
-        SkipWS(text, size);
         if (key.empty()) throw JsonParseException(text, size, exception_t::OBJECT_NULL_KEY);
         auto itr = obj->values.find(key);
         if (itr != std::end(obj->values)) throw JsonParseException(text, size, exception_t::OBJECT_DUPLICATE_KEY);
@@ -478,14 +476,20 @@ public:
     }
 
     static constexpr Value *Parse(const char *&text, size_t &size) {
+        SkipWS(text, size);
         auto value = new Object { };
         if (*text != '}') {
             for(;;) {
+                if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
+                if (*text != '"') throw JsonParseException(text, size, exception_t::OBJECT_KEY_STRING_EXPECTED);
+                ++text; --size;
                 ParseMember(value, text, size);
                 if (*text == '}') break;
                 if (*text != ',') throw JsonParseException(text, size, exception_t::INCORRECT_OBJECT_DELIMITER);
                 ++text; --size;
                 SkipWS(text, size);
+                // Allowing commma at the end
+                if (*text == '}') break;
             }
         }
         ++text; --size;
@@ -519,13 +523,13 @@ constexpr Value *Value::ParseIntegerOrFloat(const char *&text, size_t &size) {
         double value { };
         auto ret = std::from_chars(text, itr, value);
         size -= ret.ptr - itr;
-        itr = ret.ptr;
+        text = ret.ptr;
         return new Float { value };
     } else {
         int value { };
         auto ret = std::from_chars(text, itr, value);
-        size -= ret.ptr - itr;
-        itr = ret.ptr;
+        size -= ret.ptr - text;
+        text = ret.ptr;
         return new Integer { value };
     }
 }
