@@ -471,6 +471,7 @@ public:
     constexpr Ref(const std::string &text) : obj { Value::Parse(text) } { }
     constexpr Ref(const char *&text, size_t &size) : obj { Value::Parse(text, size) } { }
     constexpr Ref(Value *obj) : obj { obj } { }
+    constexpr Ref();
     Ref(const Ref &) = delete;
 
     Ref &operator=(const Ref &) = delete;
@@ -1299,6 +1300,8 @@ constexpr Value *Value::ParseInternal(const char *&text, size_t &size) {
         throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
     }
 }
+
+constexpr Ref::Ref() : obj { new Object { } } { }
 
 constexpr inline auto Parse(const char *&text, size_t &size) { return Ref { text, size }; }
 constexpr inline auto Parse(const std::string &text) { return Ref { text }; }
