@@ -308,20 +308,6 @@ enum class type {
     Error
 };
 
-/*
-      begin-array     = ws %x5B ws  ; [ left square bracket
-
-      begin-object    = ws %x7B ws  ; { left curly bracket
-
-      end-array       = ws %x5D ws  ; ] right square bracket
-
-      end-object      = ws %x7D ws  ; } right curly bracket
-
-      name-separator  = ws %x3A ws  ; : colon
-
-      value-separator = ws %x2C ws  ; , comma
-*/
-
 class Value {
 protected:
     static constexpr const char BeginArray { '[' };
@@ -348,52 +334,50 @@ protected:
     }
 
 public:
-    virtual void write(std::string &, write_format_data &) const = 0;
+    virtual constexpr void write(std::string &, write_format_data &) const = 0;
 
     virtual ~Value() = default;
 
-    virtual type GetType() const noexcept = 0;
+    virtual constexpr type GetType() const noexcept = 0;
 
-    virtual Value &operator[](size_t) const { throw NotArraryOrMapException { }; }
-    virtual Value &operator[](const std::string &) const { throw NotArraryOrMapException { }; }
-    virtual bool operator==(const Value& other) const = 0;
+    virtual constexpr Value &operator[](size_t) const { throw NotArraryOrMapException { }; }
+    virtual constexpr Value &operator[](const std::string &) const { throw NotArraryOrMapException { }; }
+    virtual constexpr bool operator==(const Value& other) const = 0;
 
-    virtual bool &GetBool() { throw NotBoolException { }; }
-    virtual bool GetBool() const { throw NotBoolException { }; }
-    virtual nullptr_t GetNull() const { throw NotNullException { }; }
-    virtual int &GetInt() { throw NotIntegerException { }; }
-    virtual int GetInt() const { throw NotIntegerException { }; }
-    virtual double &GetFloat() { throw NotFloatException { }; }
-    virtual double GetFloat() const { throw NotFloatException { }; }
-    virtual const std::string_view GetStringView() const { throw NotStringException { }; }
-    virtual std::string &GetString() { throw NotStringException { }; }
-    virtual const std::string &GetString() const { throw NotStringException { }; }
-    virtual void push_back(const bool) { throw NotArraryOrMapException { }; }
-    virtual void push_back(const int) { throw NotArraryOrMapException { }; }
-    virtual void push_back(const double) { throw NotArraryOrMapException { }; }
-    virtual void push_back(const std::string &) { throw NotArraryOrMapException { }; }
-    virtual void push_back(std::string &&) { throw NotArraryOrMapException { }; }
-    virtual void push_back(Value *) { throw NotArraryOrMapException { }; }
-    virtual void push_back(std::unique_ptr<Value> &&) { throw NotArraryOrMapException { }; }
-    virtual vector<int> GetIntVector(bool) { throw NotArraryOrMapException { }; }
-    virtual vector<bool> GetBoolVector(bool) { throw NotArraryOrMapException { }; }
-    virtual vector<float> GetFloatVector(bool) { throw NotArraryOrMapException { }; }
-    virtual vector<std::string> GetStringVector(bool) { throw NotArraryOrMapException { }; }
-    virtual void insert(std::string, const bool) { throw NotArraryOrMapException { }; }
-    virtual void insert(std::string, const int)  { throw NotArraryOrMapException { }; }
-    virtual void insert(std::string, const double)  { throw NotArraryOrMapException { }; }
-    virtual void insert(std::string, const std::string &)  { throw NotArraryOrMapException { }; }
-    virtual void insert(std::string, std::string &&)  { throw NotArraryOrMapException { }; }
-    virtual void insert(std::string, Value *)  { throw NotArraryOrMapException { }; }
-    virtual void insert(std::string, std::unique_ptr<Value> &&) { throw NotArraryOrMapException { }; }
-    virtual map<std::string, int> GetIntMap(bool) { throw NotArraryOrMapException { }; }
-    virtual map<std::string, bool> GetBoolMap(bool) { throw NotArraryOrMapException { }; }
-    virtual map<std::string, float> GetFloatMap(bool) { throw NotArraryOrMapException { }; }
-    virtual map<std::string, std::string> GetStringMap(bool) { throw NotArraryOrMapException { }; }
+    virtual constexpr bool &GetBool() { throw NotBoolException { }; }
+    virtual constexpr bool GetBool() const { throw NotBoolException { }; }
+    virtual constexpr nullptr_t GetNull() const { throw NotNullException { }; }
+    virtual constexpr int &GetInt() { throw NotIntegerException { }; }
+    virtual constexpr int GetInt() const { throw NotIntegerException { }; }
+    virtual constexpr double &GetFloat() { throw NotFloatException { }; }
+    virtual constexpr double GetFloat() const { throw NotFloatException { }; }
+    virtual constexpr const std::string_view GetStringView() const { throw NotStringException { }; }
+    virtual constexpr std::string &GetString() { throw NotStringException { }; }
+    virtual constexpr const std::string &GetString() const { throw NotStringException { }; }
+    virtual constexpr void push_back(const bool) { throw NotArraryOrMapException { }; }
+    virtual constexpr void push_back(const int) { throw NotArraryOrMapException { }; }
+    virtual constexpr void push_back(const double) { throw NotArraryOrMapException { }; }
+    virtual constexpr void push_back(const std::string &) { throw NotArraryOrMapException { }; }
+    virtual constexpr void push_back(std::string &&) { throw NotArraryOrMapException { }; }
+    virtual constexpr void push_back(Value *) { throw NotArraryOrMapException { }; }
+    virtual constexpr void push_back(std::unique_ptr<Value> &&) { throw NotArraryOrMapException { }; }
+    virtual constexpr vector<int> GetIntVector(bool) { throw NotArraryOrMapException { }; }
+    virtual constexpr vector<bool> GetBoolVector(bool) { throw NotArraryOrMapException { }; }
+    virtual constexpr vector<float> GetFloatVector(bool) { throw NotArraryOrMapException { }; }
+    virtual constexpr vector<std::string> GetStringVector(bool) { throw NotArraryOrMapException { }; }
+    virtual constexpr void insert(std::string, const bool) { throw NotArraryOrMapException { }; }
+    virtual constexpr void insert(std::string, const int)  { throw NotArraryOrMapException { }; }
+    virtual constexpr void insert(std::string, const double)  { throw NotArraryOrMapException { }; }
+    virtual constexpr void insert(std::string, const std::string &)  { throw NotArraryOrMapException { }; }
+    virtual constexpr void insert(std::string, std::string &&)  { throw NotArraryOrMapException { }; }
+    virtual constexpr void insert(std::string, Value *)  { throw NotArraryOrMapException { }; }
+    virtual constexpr void insert(std::string, std::unique_ptr<Value> &&) { throw NotArraryOrMapException { }; }
+    virtual constexpr map<std::string, int> GetIntMap(bool) { throw NotArraryOrMapException { }; }
+    virtual constexpr map<std::string, bool> GetBoolMap(bool) { throw NotArraryOrMapException { }; }
+    virtual constexpr map<std::string, float> GetFloatMap(bool) { throw NotArraryOrMapException { }; }
+    virtual constexpr map<std::string, std::string> GetStringMap(bool) { throw NotArraryOrMapException { }; }
 
-
-
-    static Value *Parse(const char *&text, size_t &size) {
+    static constexpr Value *Parse(const char *&text, size_t &size) {
         try {
             return ParseInternal(text, size);
         } catch(JsonParseException &jsonexp) {
@@ -402,7 +386,7 @@ public:
         }
     }
 
-    static Value *Parse(const std::string &text) { 
+    static constexpr Value *Parse(const std::string &text) { 
         const char *textptr = text.c_str();
         size_t size = text.size();
         return Parse(textptr, size);
@@ -482,16 +466,13 @@ protected:
 
 class Ref {
 protected:
-    Value *obj;
+    std::unique_ptr<Value> obj;
 
 public:
     constexpr Ref(const std::string &text) : obj { Value::Parse(text) } { }
     constexpr Ref(const char *&text, size_t &size) : obj { Value::Parse(text, size) } { }
     constexpr Ref(Value *obj) : obj { obj } { }
     Ref(const Ref &) = delete;
-    ~Ref() {
-        delete obj;
-    }
 
     Ref &operator=(const Ref &) = delete;
 
@@ -535,7 +516,7 @@ public:
     constexpr inline map<std::string, float> GetFloatMap(bool ignore_exceptions) { return obj->GetFloatMap(ignore_exceptions); }
     constexpr inline map<std::string, std::string> GetStringMap(bool ignore_exceptions) { return obj->GetStringMap(ignore_exceptions); }
 
-    std::string write(const write_format &format) {
+    constexpr std::string write(const write_format &format) {
         std::string result { };
         write_format_data dataformat {{}, true, format };
         obj->write(result, dataformat);
@@ -548,16 +529,16 @@ protected:
     bool value;
 
 public:
-    Bool(bool value) : value { value } { }
+    constexpr Bool(bool value) : value { value } { }
 
-    bool operator==(const Value& other) const override { 
+    constexpr bool operator==(const Value& other) const override { 
         auto rhs = dynamic_cast<const Bool *>(&other);
         return value == rhs->value;
     }
     bool operator==(const Bool& other) const = delete;
     bool operator==(const Bool& other) = delete;
 
-    void write(std::string &text, write_format_data &data) const override {
+    constexpr void write(std::string &text, write_format_data &data) const override {
         if (data.format.all_data_on_newline && !data.newline_added) {
             text += '\n';
             text += data.prefix;
@@ -567,28 +548,28 @@ public:
         data.newline_added = false;
     }
 
-    type GetType() const noexcept override { return type::Bool; }
+    constexpr type GetType() const noexcept override { return type::Bool; }
 
-    bool &GetBool() override { return value; }
-    bool GetBool() const override { return value; }
-    int GetInt() const override { return static_cast<int>(value); }
-    double GetFloat() const override { return static_cast<double>(value); }
+    constexpr bool &GetBool() override { return value; }
+    constexpr bool GetBool() const override { return value; }
+    constexpr int GetInt() const override { return static_cast<int>(value); }
+    constexpr double GetFloat() const override { return static_cast<double>(value); }
 };
 
 class Integer : public Value {
     int value;
     
 public:
-    Integer(const int value) : value { value } { }
+    constexpr Integer(const int value) : value { value } { }
 
-    bool operator==(const Value& other) const override { 
+    constexpr bool operator==(const Value& other) const override { 
         auto rhs = dynamic_cast<const Integer *>(&other);
         return value == rhs->value;
     }
     bool operator==(const Integer& other) const = delete;
     bool operator==(const Integer& other) = delete;
 
-    void write(std::string &text, write_format_data &data) const override {
+    constexpr void write(std::string &text, write_format_data &data) const override {
         if (data.format.all_data_on_newline && !data.newline_added) {
             text += '\n';
             text += data.prefix;
@@ -597,28 +578,28 @@ public:
         data.newline_added = false;
     }
 
-    type GetType() const noexcept override { return type::NumberInt; }
+    constexpr type GetType() const noexcept override { return type::NumberInt; }
 
-    bool GetBool() const override { return value != 0; }
-    int &GetInt() override { return value; }
-    int GetInt() const override { return value; }
-    double GetFloat() const override { return static_cast<double>(value); }
+    constexpr bool GetBool() const override { return value != 0; }
+    constexpr int &GetInt() override { return value; }
+    constexpr int GetInt() const override { return value; }
+    constexpr double GetFloat() const override { return static_cast<double>(value); }
 };
 
 class Float : public Value {
     double value;
 
 public:
-    Float(const double value) : value { value } { }
+    constexpr Float(const double value) : value { value } { }
 
-    bool operator==(const Value& other) const override { 
+    constexpr bool operator==(const Value& other) const override { 
         auto rhs = dynamic_cast<const Float *>(&other);
         return value == rhs->value;
     }
     bool operator==(const Float& other) const = delete;
     bool operator==(const Float& other) = delete;
 
-    void write(std::string &text, write_format_data &data) const override {
+    constexpr void write(std::string &text, write_format_data &data) const override {
         if (data.format.all_data_on_newline && !data.newline_added) {
             text += '\n';
             text += data.prefix;
@@ -627,12 +608,12 @@ public:
         data.newline_added = false;
     }
 
-    type GetType() const noexcept override { return type::NumberFloat; }
+    constexpr type GetType() const noexcept override { return type::NumberFloat; }
 
-    bool GetBool() const override { return value != 0; }
-    int GetInt() const override { return static_cast<int>(value); }
-    double GetFloat() const override { return value; }
-    double &GetFloat() override { return value; }
+    constexpr bool GetBool() const override { return value != 0; }
+    constexpr int GetInt() const override { return static_cast<int>(value); }
+    constexpr double GetFloat() const override { return value; }
+    constexpr double &GetFloat() override { return value; }
 
 };
 
@@ -640,17 +621,17 @@ class String : public Value {
     std::string value;
 
 public:
-    String(const std::string &value) : value { value } { }
-    String(const std::string &&value) : value { std::move(value) } { }
+    constexpr String(const std::string &value) : value { value } { }
+    constexpr String(const std::string &&value) : value { std::move(value) } { }
 
-    bool operator==(const Value& other) const override { 
+    constexpr bool operator==(const Value& other) const override { 
         auto rhs = dynamic_cast<const String *>(&other);
         return value == rhs->value;
     }
-    bool operator==(const String& other) const = delete;
-    bool operator==(const String& other) = delete;
+    constexpr bool operator==(const String& other) const = delete;
+    constexpr bool operator==(const String& other) = delete;
 
-    void write(std::string &text, write_format_data &data) const override {
+    constexpr void write(std::string &text, write_format_data &data) const override {
         if (data.format.all_data_on_newline && !data.newline_added) {
             text += '\n';
             text += data.prefix;
@@ -661,20 +642,20 @@ public:
         data.newline_added = false;
     }
 
-    const std::string_view GetStringView() const override { return { value.c_str(), value.size() }; }
+    constexpr const std::string_view GetStringView() const override { return { value.c_str(), value.size() }; }
 
-    bool GetBool() const override { 
+    constexpr bool GetBool() const override { 
         if (value == "true") return true;
         if (value == "false") return true;
         int ival = std::stoi(value);
         return !!ival;
     }
-    int GetInt() const override { return std::stoi(value); }
-    double GetFloat() const override { return std::stod(value); }
-    std::string &GetString() override { return value; }
-    const std::string &GetString() const override { return value; }
+    constexpr int GetInt() const override { return std::stoi(value); }
+    constexpr double GetFloat() const override { return std::stod(value); }
+    constexpr std::string &GetString() override { return value; }
+    constexpr const std::string &GetString() const override { return value; }
 
-    type GetType() const noexcept override { return type::String; }
+    constexpr type GetType() const noexcept override { return type::String; }
 
     static constexpr Value *Parse(const char *&text, size_t &size) {
         auto value = ParseString(text, size);
@@ -734,7 +715,7 @@ class Array : public Value {
     vector<std::unique_ptr<Value>> values { };
 
 public:
-    bool operator==(const Value& other) const override { 
+    constexpr bool operator==(const Value& other) const override { 
         auto rhs = dynamic_cast<const Array *>(&other);
         if (values.size() != rhs->values.size()) return false;
         for(size_t index { 0 }; index < values.size(); ++index) {
@@ -745,7 +726,7 @@ public:
     bool operator==(const Array& other) const = delete;
     bool operator==(const Array& other) = delete;
 
-    void write(std::string &text, write_format_data &data) const override {
+    constexpr void write(std::string &text, write_format_data &data) const override {
         if (data.format.newline_before_bracket_open && !data.newline_added) {
             text += '\n';
             text += data.prefix;
@@ -788,54 +769,54 @@ public:
         } else data.newline_added = false;
     }
 
-    Value &operator[](size_t index) const override { 
+    constexpr Value &operator[](size_t index) const override { 
         if (index >= values.size()) throw ArrayOutOfRangeException { };
         return *values[index];
     }
 
-    Value &operator[](const std::string &key) const override {
+    constexpr Value &operator[](const std::string &key) const override {
         auto index = std::stoul(key);
         if (index >= values.size()) throw ArrayOutOfRangeException { };
         return *values[index];
     }
 
-    void push_back(const bool value) override {
+    constexpr void push_back(const bool value) override {
         auto json = new Bool { value };
         values.emplace_back(json);
     }
 
-    void push_back(const int value) override {
+    constexpr void push_back(const int value) override {
         auto json = new Integer { value };
         values.emplace_back(json);
     }
 
-    void push_back(const double value) override {
+    constexpr void push_back(const double value) override {
         auto json = new Float { value };
         values.emplace_back(json);
     }
 
-    void push_back(const std::string &value) override {
+    constexpr void push_back(const std::string &value) override {
         auto json = new String { value };
         values.emplace_back(json);
     }
 
-    void push_back(std::string &&value) override {
+    constexpr void push_back(std::string &&value) override {
         auto json = new String { std::move(value) };
         values.emplace_back(json);
     }
 
-    void push_back(Value *json) override {
+    constexpr void push_back(Value *json) override {
         values.emplace_back(json);
     }
 
-    void push_back(std::unique_ptr<Value> &&json) override {
+    constexpr void push_back(std::unique_ptr<Value> &&json) override {
         values.push_back(std::move(json));
     }
 
     /*! This will return all the integer, it will try to convert it to integer for string and bool.
      * if any of fails to retrieve it will throw exception if exclude_non_int is set otherwise it will thorw exception
      */
-    vector<int> GetIntVector(bool exclude_non_int = true) override {
+    constexpr vector<int> GetIntVector(bool exclude_non_int = true) override {
         vector<int> ret { };
         if (exclude_non_int) {
             for(auto &value: values) {
@@ -851,7 +832,7 @@ public:
         return ret;
     }
 
-    vector<bool> GetBoolVector(bool exclude_non_bool = true) override {
+    constexpr vector<bool> GetBoolVector(bool exclude_non_bool = true) override {
         vector<bool> ret { };
         if (exclude_non_bool) {
             for(auto &value: values) {
@@ -867,7 +848,7 @@ public:
         return ret;
     }
 
-    vector<float> GetFloatVector(bool exclude_non_float = true) override {
+    constexpr vector<float> GetFloatVector(bool exclude_non_float = true) override {
         vector<float> ret { };
         if (exclude_non_float) {
             for(auto &value: values) {
@@ -883,7 +864,7 @@ public:
         return ret;
     }
 
-    vector<std::string> GetStringVector(bool exclude_non_string = true) override {
+    constexpr vector<std::string> GetStringVector(bool exclude_non_string = true) override {
         vector<std::string> ret { };
         if (exclude_non_string) {
             for(auto &value: values) {
@@ -899,7 +880,7 @@ public:
         return ret;
     }
 
-    type GetType() const noexcept override { return type::Array; }
+    constexpr type GetType() const noexcept override { return type::Array; }
 
 
     static constexpr Value *Parse(const char *&text, size_t &size) {
@@ -922,7 +903,6 @@ public:
         ++text; --size;
         return array;
     }
-
 };
 
 class Object : public Value {
@@ -930,8 +910,7 @@ class Object : public Value {
     map<std::string, std::unique_ptr<Value>> values { };
     
 public:
-
-    bool operator==(const Value& other) const override { 
+    constexpr bool operator==(const Value& other) const override { 
         auto rhs = dynamic_cast<const Object *>(&other);
         if (values.size() != rhs->values.size()) return false;
         for(auto &value: values) {
@@ -945,7 +924,7 @@ public:
     bool operator==(const Object& other) = delete;
     
 
-    void write(std::string &text, write_format_data &data) const override {
+    constexpr void write(std::string &text, write_format_data &data) const override {
         if (data.format.newline_before_bracket_open && !data.newline_added) {
             text += '\n';
             text += data.prefix;
@@ -1002,21 +981,21 @@ public:
         } else data.newline_added = false;
     }
 
-    Value &operator[](const std::string &key) const override {
+    constexpr Value &operator[](const std::string &key) const override {
         auto itr = values.find(key);
         if (itr == std::end(values)) throw ObjecctOutOfRangeException { };
         return *itr->second;
     }
 
 
-    Value &operator[](size_t index) const override { 
+    constexpr Value &operator[](size_t index) const override { 
         auto key = std::to_string(index);
         auto itr = values.find(key);
         if (itr == std::end(values)) throw ObjecctOutOfRangeException { };
         return *itr->second;
     }
 
-    type GetType() const noexcept override { return type::Object; }
+    constexpr type GetType() const noexcept override { return type::Object; }
 
     static constexpr void ParseMember(Object *obj, const char *&text, size_t &size) {
         auto key = ParseString(text, size);
@@ -1051,40 +1030,40 @@ public:
         return value;
     }
 
-    void insert(std::string key, const bool value) override {
+    constexpr void insert(std::string key, const bool value) override {
         auto json = new Bool { value };
         values.emplace(key, json);
     }
 
-    void insert(std::string key, const int value) override {
+    constexpr void insert(std::string key, const int value) override {
         auto json = new Integer { value };
         values.emplace(key, json);
     }
 
-    void insert(std::string key, const double value) override {
+    constexpr void insert(std::string key, const double value) override {
         auto json = new Float { value };
         values.emplace(key, json);
     }
 
-    void insert(std::string key, const std::string &value) override {
+    constexpr void insert(std::string key, const std::string &value) override {
         auto json = new String { value };
         values.emplace(key, json);
     }
 
-    void insert(std::string key, std::string &&value) override {
+    constexpr void insert(std::string key, std::string &&value) override {
         auto json = new String { std::move(value) };
         values.emplace(key, json);
     }
 
-    void insert(std::string key, Value *json) override {
+    constexpr void insert(std::string key, Value *json) override {
         values.emplace(key, json);
     }
 
-    void insert(std::string key, std::unique_ptr<Value> &&json) override {
+    constexpr void insert(std::string key, std::unique_ptr<Value> &&json) override {
         values.emplace(key, std::move(json));
     }
 
-    vector<int> GetIntVector(bool exclude_non_int = true) override {
+    constexpr vector<int> GetIntVector(bool exclude_non_int = true) override {
         vector<int> ret { };
         if (exclude_non_int) {
             for(auto &value: values) {
@@ -1100,7 +1079,7 @@ public:
         return ret;
     }
 
-    vector<bool> GetBoolVector(bool exclude_non_bool = true) override {
+    constexpr vector<bool> GetBoolVector(bool exclude_non_bool = true) override {
         vector<bool> ret { };
         if (exclude_non_bool) {
             for(auto &value: values) {
@@ -1116,7 +1095,7 @@ public:
         return ret;
     }
 
-    vector<float> GetFloatVector(bool exclude_non_float = true) override {
+    constexpr vector<float> GetFloatVector(bool exclude_non_float = true) override {
         vector<float> ret { };
         if (exclude_non_float) {
             for(auto &value: values) {
@@ -1132,7 +1111,7 @@ public:
         return ret;
     }
 
-    vector<std::string> GetStringVector(bool exclude_non_string = true) override {
+    constexpr vector<std::string> GetStringVector(bool exclude_non_string = true) override {
         vector<std::string> ret { };
         if (exclude_non_string) {
             for(auto &value: values) {
@@ -1148,7 +1127,7 @@ public:
         return ret;
     }
 
-    map<std::string, int> GetIntMap(bool exclude_non_int = true) override {
+    constexpr map<std::string, int> GetIntMap(bool exclude_non_int = true) override {
         map<std::string, int> ret { };
         if (exclude_non_int) {
             for(auto &value: values) {
@@ -1164,7 +1143,7 @@ public:
         return ret;
     }
 
-    map<std::string, bool> GetBoolMap(bool exclude_non_bool = true) override {
+    constexpr map<std::string, bool> GetBoolMap(bool exclude_non_bool = true) override {
         map<std::string, bool> ret { };
         if (exclude_non_bool) {
             for(auto &value: values) {
@@ -1180,7 +1159,7 @@ public:
         return ret;
     }
 
-    map<std::string, float> GetFloatMap(bool exclude_non_float = true) override {
+    constexpr map<std::string, float> GetFloatMap(bool exclude_non_float = true) override {
         map<std::string, float> ret { };
         if (exclude_non_float) {
             for(auto &value: values) {
@@ -1196,7 +1175,7 @@ public:
         return ret;
     }
 
-    map<std::string, std::string> GetStringMap(bool exclude_non_string = true) override {
+    constexpr map<std::string, std::string> GetStringMap(bool exclude_non_string = true) override {
         map<std::string, std::string> ret { };
         if (exclude_non_string) {
             for(auto &value: values) {
@@ -1322,7 +1301,7 @@ constexpr Value *Value::ParseInternal(const char *&text, size_t &size) {
     }
 }
 
-inline auto Parse(const char *&text, size_t &size) { return Ref { text, size }; }
-inline auto Parse(const std::string &text) { return Ref { text }; }
+constexpr inline auto Parse(const char *&text, size_t &size) { return Ref { text, size }; }
+constexpr inline auto Parse(const std::string &text) { return Ref { text }; }
 
 } // namespace rohit::json

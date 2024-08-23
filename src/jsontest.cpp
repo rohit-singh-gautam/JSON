@@ -196,6 +196,18 @@ TEST(JSONTest, JSONFile) {
     EXPECT_TRUE(courses == jsoncourses);
 }
 
+constexpr int ConstExprJSON() {
+    const std::string value { "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]"};
+    auto json = rohit::json::Ref { value };
+    int int_value = json[2].GetInt();
+    return int_value;
+}
+
+TEST(JSONTest, JSONConstExpr) {
+    int value = ConstExprJSON();
+    EXPECT_TRUE(value == 2);
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
