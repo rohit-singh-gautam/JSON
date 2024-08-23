@@ -19,3 +19,5 @@ target_link_libraries(JSONTest PRIVATE GTest::gtest_main)
 add_test(JSONTest JSONTest)
 
 file(COPY resources DESTINATION .)
+
+add_subdirectory(examples)

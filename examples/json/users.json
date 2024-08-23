@@ -1,0 +1,47 @@
+{
+    "users": [
+      {
+        "id": 1,
+        "name": "John Doe",
+        "email": "john.doe@example.com",
+        "address": {
+          "street": "123 Main St",
+          "city": "Anytown",
+          "state": "CA",
+          "zip": "12345"
+        },
+        "phoneNumbers": [
+          {
+            "type": "home",
+            "number": "555-555-5555"
+          },
+          {
+            "type": "work",
+            "number": "555-555-5556"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "Jane Smith",
+        "email": "jane.smith@example.com",
+        "address": {
+          "street": "456 Elm St",
+          "city": "Othertown",
+          "state": "TX",
+          "zip": "67890"
+        },
+        "phoneNumbers": [
+          {
+            "type": "home",
+            "number": "555-555-5557"
+          },
+          {
+            "type": "work",
+            "number": "555-555-5558"
+          }
+        ]
+      }
+    ]
+}
+  
