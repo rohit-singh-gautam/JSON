@@ -479,6 +479,70 @@ protected:
     }
 };
 
+
+class Ref {
+protected:
+    Value *obj;
+
+public:
+    constexpr Ref(const std::string &text) : obj { Value::Parse(text) } { }
+    constexpr Ref(const char *&text, size_t &size) : obj { Value::Parse(text, size) } { }
+    constexpr Ref(Value *obj) : obj { obj } { }
+    Ref(const Ref &) = delete;
+    ~Ref() {
+        delete obj;
+    }
+
+    Ref &operator=(const Ref &) = delete;
+
+    constexpr inline type GetType() const { return obj->GetType(); }
+
+    constexpr inline Value &operator[](size_t index) const { return obj->operator[](index); }
+    constexpr inline Value &operator[](const std::string &key) const { return obj->operator[](key); }
+    constexpr inline bool operator==(const Value& other) const { return obj->operator==(other); }
+    constexpr inline bool operator==(const Ref& other) const { return obj->operator==(*other.obj); }
+
+    constexpr inline bool &GetBool() { return obj->GetBool(); }
+    constexpr inline bool GetBool() const { return obj->GetBool(); }
+    constexpr inline nullptr_t GetNull() const { return obj->GetNull(); }
+    constexpr inline int &GetInt() { return obj->GetInt(); }
+    constexpr inline int GetInt() const { return obj->GetInt(); }
+    constexpr inline double &GetFloat() { return obj->GetFloat(); }
+    constexpr inline double GetFloat() const { return obj->GetFloat(); }
+    constexpr inline const std::string_view GetStringView() const { return obj->GetStringView(); }
+    constexpr inline std::string &GetString() { return obj->GetString(); }
+    constexpr inline const std::string &GetString() const { return obj->GetString(); }
+    constexpr inline void push_back(const bool value) { return obj->push_back(value); }
+    constexpr inline void push_back(const int value) { return obj->push_back(value); }
+    constexpr inline void push_back(const double value) { return obj->push_back(value); }
+    constexpr inline void push_back(const std::string &value) { return obj->push_back(value); }
+    constexpr inline void push_back(std::string &&value) { return obj->push_back(std::move(value)); }
+    constexpr inline void push_back(Value *value) { return obj->push_back(value); }
+    constexpr inline void push_back(std::unique_ptr<Value> &&value) { return obj->push_back(std::move(value)); }
+    constexpr inline vector<int> GetIntVector(bool ignore_exceptions) { return obj->GetIntVector(ignore_exceptions); }
+    constexpr inline vector<bool> GetBoolVector(bool ignore_exceptions) { return obj->GetBoolVector(ignore_exceptions); }
+    constexpr inline vector<float> GetFloatVector(bool ignore_exceptions) { return obj->GetFloatVector(ignore_exceptions); }
+    constexpr inline vector<std::string> GetStringVector(bool ignore_exceptions) { return obj->GetStringVector(ignore_exceptions); }
+    constexpr inline void insert(std::string key, const bool value) { return obj->insert(key, value); }
+    constexpr inline void insert(std::string key, const int value) { return obj->insert(key, value); }
+    constexpr inline void insert(std::string key, const double value) { return obj->insert(key, value); }
+    constexpr inline void insert(std::string key, const std::string &value) { return obj->insert(key, value); }
+    constexpr inline void insert(std::string key, std::string &&value) { return obj->insert(key, std::move(value)); }
+    constexpr inline void insert(std::string key, Value *value) { return obj->insert(key, value); }
+    constexpr inline void insert(std::string key, std::unique_ptr<Value> &&value) { return obj->insert(key, std::move(value)); }
+    constexpr inline map<std::string, int> GetIntMap(bool ignore_exceptions) { return obj->GetIntMap(ignore_exceptions); }
+    constexpr inline map<std::string, bool> GetBoolMap(bool ignore_exceptions) { return obj->GetBoolMap(ignore_exceptions); }
+    constexpr inline map<std::string, float> GetFloatMap(bool ignore_exceptions) { return obj->GetFloatMap(ignore_exceptions); }
+    constexpr inline map<std::string, std::string> GetStringMap(bool ignore_exceptions) { return obj->GetStringMap(ignore_exceptions); }
+
+    std::string write(const write_format &format) {
+        std::string result { };
+        write_format_data dataformat {{}, true, format };
+        obj->write(result, dataformat);
+        return result;
+    }
+};
+
 class Bool : public Value {
 protected:
     bool value;
@@ -1258,13 +1322,7 @@ constexpr Value *Value::ParseInternal(const char *&text, size_t &size) {
     }
 }
 
-constexpr inline Value *Parse(const char *&text, size_t &size) { return Value::Parse(text, size); }
-constexpr inline Value *Parse(const std::string &text) { return Value::Parse(text); }
-constexpr inline std::string write(const Value &value, const write_format &format) {
-    std::string result;
-    write_format_data dataformat {{}, true, format };
-    value.write(result, dataformat);
-    return result;
-}
+inline auto Parse(const char *&text, size_t &size) { return Ref { text, size }; }
+inline auto Parse(const std::string &text) { return Ref { text }; }
 
 } // namespace rohit::json

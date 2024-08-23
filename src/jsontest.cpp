@@ -42,9 +42,9 @@ bool StringCreateAndMatch(const std::string &value) {
     json += value;
     json += "\"";
     try {
-        rohit::json::Value *jsonvalue = rohit::json::Parse(json);
+        auto jsonref = rohit::json::Parse(json);
 
-        auto newvalue = jsonvalue->GetString();
+        auto newvalue = jsonref.GetString();
         std::string expanded { };
         rohit::json::String::EscapeString(newvalue, expanded);
         return value == expanded;
@@ -57,9 +57,9 @@ bool StringCreateAndMatch(const std::string &value) {
 
 bool BoolCreateAndMatch(const std::string &json, bool expected) {
     try {
-        rohit::json::Value *jsonvalue = rohit::json::Parse(json);
+        auto jsonref = rohit::json::Parse(json);
 
-        auto newvalue = jsonvalue->GetBool();
+        auto newvalue = jsonref.GetBool();
         return newvalue == expected;
     }
     catch(rohit::json::JsonParseException &e) {
@@ -71,9 +71,9 @@ bool BoolCreateAndMatch(const std::string &json, bool expected) {
 bool IntegerCreateAndMatch(int value) {
     try {
         std::string json = std::to_string(value);
-        auto jsonvalue = rohit::json::Parse(json);
+        auto jsonref = rohit::json::Parse(json);
         
-        auto newvalue = jsonvalue->GetInt();
+        auto newvalue = jsonref.GetInt();
         return newvalue == value;
     }
     catch(rohit::json::JsonParseException &e) {
@@ -85,9 +85,9 @@ bool IntegerCreateAndMatch(int value) {
 bool FloatCreateAndMatch(double value) {
     try {
         std::string json = std::to_string(value);
-        auto jsonvalue = rohit::json::Parse(json);
+        auto jsonref = rohit::json::Parse(json);
         
-        auto newvalue = jsonvalue->GetFloat();
+        auto newvalue = jsonref.GetFloat();
         return newvalue == value;
     }
     catch(rohit::json::JsonParseException &e) {
@@ -140,18 +140,18 @@ TEST(JSONTest, StringTest) {
 
 TEST(JSONTest, JsonArray) {
     const std::string value { "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]"};
-    rohit::json::Value *jsonvalue = rohit::json::Parse(value);
-    EXPECT_TRUE((*jsonvalue)[0].GetInt() == 0);
-    EXPECT_TRUE((*jsonvalue)[2].GetInt() == 2);
-    EXPECT_TRUE((*jsonvalue)[6].GetInt() == 6);
+    auto json = rohit::json::Parse(value);
+    EXPECT_TRUE(json[0].GetInt() == 0);
+    EXPECT_TRUE(json[2].GetInt() == 2);
+    EXPECT_TRUE(json[6].GetInt() == 6);
 
     const std::string value1 { "[0, 1, 2, [\"Test1\", \"Test2\", \"Test3\"], 4, 5, 6]"};
-    rohit::json::Value *jsonvalue1 = rohit::json::Parse(value1);
-    EXPECT_TRUE((*jsonvalue1)[3][0].GetString() == "Test1");
-    EXPECT_TRUE((*jsonvalue1)[3][2].GetString() == "Test3");
+    auto json1 = rohit::json::Parse(value1);
+    EXPECT_TRUE(json1[3][0].GetString() == "Test1");
+    EXPECT_TRUE(json1[3][2].GetString() == "Test3");
 
     const std::string expectedjson { "[0,1,2,3,4,5,6,7,8,9]"};
-    std::string newjson = rohit::json::write(*jsonvalue, rohit::json::format::compress);
+    std::string newjson = json.write(rohit::json::format::compress);
     EXPECT_TRUE(newjson == expectedjson);
 }
 
@@ -166,33 +166,33 @@ TEST(JSONTest, JsonObject) {
         "    }\n"
         "}\n"
     };
-    rohit::json::Value &jsonvalue = *rohit::json::Parse(value);
-    EXPECT_TRUE(jsonvalue["Key1"]["key11"].GetString() == "Value1");
-    EXPECT_TRUE(jsonvalue["Key1"]["key13"][2].GetInt() == 2);
+    auto jsonref = rohit::json::Parse(value);
+    EXPECT_TRUE(jsonref["Key1"]["key11"].GetString() == "Value1");
+    EXPECT_TRUE(jsonref["Key1"]["key13"][2].GetInt() == 2);
 
-    std::string newjson = rohit::json::write(jsonvalue, rohit::json::format::compress);
+    std::string newjson = jsonref.write(rohit::json::format::compress);
     std::string expectedjson {"{\"Key1\":{\"key11\":\"Value1\",\"key12\":32,\"key13\":[0,1,2,3,4,5,6],\"key14\":true}}"};
     EXPECT_TRUE(newjson == expectedjson);
-    std::string newjson1 = rohit::json::write(jsonvalue, rohit::json::format::beautify);
+    std::string newjson1 = jsonref.write(rohit::json::format::beautify);
     std::string expectedjson1 {
         "{\n  \"Key1\":\n  {\n    \"key11\": \"Value1\",\n    \"key12\": 32,\n    \"key13\":\n    [\n      0, 1, 2, 3, 4, 5, 6\n    ],\n    \"key14\": true\n  }\n}"
     };
     EXPECT_TRUE(newjson1 == expectedjson1);
-    std::string newjson2 = rohit::json::write(jsonvalue, rohit::json::format::beautify_vertical);
+    std::string newjson2 = jsonref.write(rohit::json::format::beautify_vertical);
     std::string expectedjson2 {
         "{\n  \"Key1\":\n  {\n    \"key11\": \"Value1\",\n    \"key12\": 32,\n    \"key13\":\n    [\n      0,\n      1,\n      2,\n      3,\n      4,\n      5,\n      6\n    ],\n    \"key14\": true\n  }\n}"
     };
     EXPECT_TRUE(newjson2 == expectedjson2);
 
-    rohit::json::Value &jsonvalue1 = *rohit::json::Parse(newjson1);
-    EXPECT_TRUE(jsonvalue == jsonvalue1);
+    auto jsonref1 = rohit::json::Parse(newjson1);
+    EXPECT_TRUE(jsonref == jsonref1);
 }
 
 TEST(JSONTest, JSONFile) {
     const std::string jsonstr = GetFromFile("./resources/simpleprofile.json");
     auto json = rohit::json::Parse(jsonstr);
     std::vector<std::string> courses { "Math", "Physics", "Chemistry" };
-    auto jsoncourses = (*json)["courses"].GetStringVector(false);
+    auto jsoncourses = json["courses"].GetStringVector(false);
     EXPECT_TRUE(courses == jsoncourses);
 }
 
