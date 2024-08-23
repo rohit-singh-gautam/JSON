@@ -118,8 +118,7 @@ TEST(JSONTest, JsonArray) {
     EXPECT_TRUE((*jsonvalue1)[3][2].GetString() == "Test3");
 
     const std::string expectedjson { "[0,1,2,3,4,5,6,7,8,9]"};
-    std::string newjson { };
-    jsonvalue->write(newjson);
+    std::string newjson = rohit::json::write(*jsonvalue, rohit::json::format::compress);
     EXPECT_TRUE(newjson == expectedjson);
 }
 
@@ -139,10 +138,23 @@ TEST(JSONTest, JsonObject) {
     EXPECT_TRUE(jsonvalue["Key1"]["key11"].GetString() == "Value1");
     EXPECT_TRUE(jsonvalue["Key1"]["key13"][2].GetInt() == 2);
 
-    std::string newjson { };
-    jsonvalue.write(newjson);
-    std::string expectedjson { "{Key1:{key11:\"Value1\",key12:32,key13:[0,1,2,3,4,5,6],key14:true}}"};
+    std::string newjson = rohit::json::write(jsonvalue, rohit::json::format::compress);
+    std::string expectedjson {"{\"Key1\":{\"key11\":\"Value1\",\"key12\":32,\"key13\":[0,1,2,3,4,5,6],\"key14\":true}}"};
     EXPECT_TRUE(newjson == expectedjson);
+    std::string newjson1 = rohit::json::write(jsonvalue, rohit::json::format::beautify);
+    std::string expectedjson1 {
+        "{\n  \"Key1\":\n  {\n    \"key11\": \"Value1\",\n    \"key12\": 32,\n    \"key13\":\n    [\n      0, 1, 2, 3, 4, 5, 6\n    ],\n    \"key14\": true\n  }\n}"
+    };
+    EXPECT_TRUE(newjson1 == expectedjson1);
+    std::string newjson2 = rohit::json::write(jsonvalue, rohit::json::format::beautify_vertical);
+    std::string expectedjson2 {
+        "{\n  \"Key1\":\n  {\n    \"key11\": \"Value1\",\n    \"key12\": 32,\n    \"key13\":\n    [\n      0,\n      1,\n      2,\n      3,\n      4,\n      5,\n      6\n    ],\n    \"key14\": true\n  }\n}"
+    };
+    EXPECT_TRUE(newjson2 == expectedjson2);
+
+    // std::cout << "Compressed: " << newjson << std::endl;
+    // std::cout << "Beautified: " << newjson1 << std::endl;
+    // std::cout << "Beautified Vertical: " << newjson2 << std::endl;
 }
 
 int main(int argc, char *argv[]) {

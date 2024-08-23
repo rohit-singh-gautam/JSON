@@ -18,6 +18,82 @@
 
 namespace rohit::json {
 
+struct write_format {
+    bool newline_before_braces_open;
+    bool newline_after_braces_open;
+    bool newline_before_braces_close;
+    bool newline_after_braces_close;
+    bool newline_before_bracket_open;
+    bool newline_after_bracket_open;
+    bool newline_before_bracket_close;
+    bool newline_after_bracket_close;
+    bool newline_before_object_member;
+    bool space_after_comma; // Space will not be added if newline is enabled
+    bool newline_after_comma;
+    bool space_after_colon;
+    bool all_data_on_newline;
+    std::string intendtext;
+};
+
+namespace format {
+static constexpr write_format compress { 
+    .newline_before_braces_open = false,
+    .newline_after_braces_open = false,
+    .newline_before_braces_close = false,
+    .newline_after_braces_close = false,
+    .newline_before_bracket_open = false,
+    .newline_after_bracket_open = false,
+    .newline_before_bracket_close = false,
+    .newline_after_bracket_close = false,
+    .newline_before_object_member = false,
+    .space_after_comma = false,
+    .newline_after_comma = false,
+    .space_after_colon = false,
+    .all_data_on_newline = false,
+    .intendtext = { } 
+};
+
+static constexpr write_format beautify { 
+    .newline_before_braces_open = false,
+    .newline_after_braces_open = true,
+    .newline_before_braces_close = true,
+    .newline_after_braces_close = false,
+    .newline_before_bracket_open = true,
+    .newline_after_bracket_open = true,
+    .newline_before_bracket_close = true,
+    .newline_after_bracket_close = false,
+    .newline_before_object_member = true,
+    .space_after_comma = true,
+    .newline_after_comma = false,
+    .space_after_colon = true,
+    .all_data_on_newline = false,
+    .intendtext = { "  " } 
+};
+
+static constexpr write_format beautify_vertical { 
+    .newline_before_braces_open = true,
+    .newline_after_braces_open = true,
+    .newline_before_braces_close = true,
+    .newline_after_braces_close = false,
+    .newline_before_bracket_open = true,
+    .newline_after_bracket_open = true,
+    .newline_before_bracket_close = true,
+    .newline_after_bracket_close = false,
+    .newline_before_object_member = true,
+    .space_after_comma = true,
+    .newline_after_comma = true,
+    .space_after_colon = true,
+    .all_data_on_newline = true,
+    .intendtext = { "  " } 
+};
+} // namespace format
+
+struct write_format_data {
+    std::string prefix;
+    bool newline_added;
+    write_format format;
+};
+
 
 #ifdef LIST_DEFINITION_END
     #undef LIST_DEFINITION_END
@@ -252,11 +328,11 @@ protected:
     }
 
 public:
-    virtual void write(std::string &text) = 0;
+    virtual void write(std::string &, write_format_data &) const = 0;
 
     virtual ~Value() = default;
 
-    virtual type GetType() const noexcept { return type::Error; }
+    virtual type GetType() const noexcept = 0;
 
     virtual Value &operator[](size_t) const { throw NotArraryOrMapException { }; }
     virtual Value &operator[](const std::string &) const { throw NotArraryOrMapException { }; }
@@ -365,9 +441,14 @@ protected:
 public:
     Bool(bool value) : value { value } { }
 
-    void write(std::string &text) override {
+    void write(std::string &text, write_format_data &data) const override {
+        if (data.format.all_data_on_newline && !data.newline_added) {
+            text += '\n';
+            text += data.prefix;
+        }
         if (value) text += "true";
         else text += "false";
+        data.newline_added = false;
     }
 
     type GetType() const noexcept override { return type::Bool; }
@@ -384,8 +465,13 @@ class Integer : public Value {
 public:
     Integer(const int value) : value { value } { }
 
-    void write(std::string &text) override {
+    void write(std::string &text, write_format_data &data) const override {
+        if (data.format.all_data_on_newline && !data.newline_added) {
+            text += '\n';
+            text += data.prefix;
+        }
         text += std::to_string(value);
+        data.newline_added = false;
     }
 
     type GetType() const noexcept override { return type::NumberInt; }
@@ -402,8 +488,13 @@ class Float : public Value {
 public:
     Float(const double value) : value { value } { }
 
-    void write(std::string &text) override {
+    void write(std::string &text, write_format_data &data) const override {
+        if (data.format.all_data_on_newline && !data.newline_added) {
+            text += '\n';
+            text += data.prefix;
+        }
         text += std::to_string(value);
+        data.newline_added = false;
     }
 
     type GetType() const noexcept override { return type::NumberFloat; }
@@ -422,10 +513,15 @@ public:
     String(const std::string &value) : value { value } { }
     String(const std::string &&value) : value { std::move(value) } { }
 
-    void write(std::string &text) override {
+    void write(std::string &text, write_format_data &data) const override {
+        if (data.format.all_data_on_newline && !data.newline_added) {
+            text += '\n';
+            text += data.prefix;
+        }
         text.push_back('"');
         EscapeString(value, text);
         text.push_back('"');
+        data.newline_added = false;
     }
 
     const std::string_view GetStringView() const override { return { value.c_str(), value.size() }; }
@@ -493,20 +589,47 @@ class Array : public Value {
     std::vector<std::unique_ptr<Value>> values { };
 
 public:
-    void write(std::string &text) override {
+    void write(std::string &text, write_format_data &data) const override {
+        if (data.format.newline_before_bracket_open && !data.newline_added) {
+            text += '\n';
+            text += data.prefix;
+        }
         if (values.empty()) text += "[]";
         else {
             text.push_back('[');
+            data.prefix.append(data.format.intendtext);
+            if (data.format.newline_after_bracket_open) {
+                text += '\n';
+                text += data.prefix;
+                data.newline_added = true;
+            }
             auto itr = std::begin(values);
-            (*itr)->write(text);
+            (*itr)->write(text, data);
             itr = std::next(itr);
             while(itr != std::end(values)) {
                 text.push_back(',');
-                (*itr)->write(text);
+                if (data.format.newline_after_comma) {
+                    text += '\n';
+                    text += data.prefix;
+                    data.newline_added = true;
+                } else if (data.format.space_after_comma) text.push_back(' ');
+                (*itr)->write(text, data);
                 itr = std::next(itr);
+            }
+            const auto prefixsize = data.prefix.size();
+            const auto intendsize = data.format.intendtext.size();
+            data.prefix.erase(prefixsize - intendsize, intendsize);
+            if (data.format.newline_before_bracket_close) {
+                text += '\n';
+                text += data.prefix;
             }
             text.push_back(']');
         }
+        if (data.format.newline_after_bracket_close) {
+            text += '\n';
+            text += data.prefix;
+            data.newline_added = true;
+        } else data.newline_added = false;
     }
 
     Value &operator[](size_t index) const override { 
@@ -551,24 +674,61 @@ class Object : public Value {
     std::map<std::string, std::unique_ptr<Value>> values { };
     
 public:
-    void write(std::string &text) override {
+    void write(std::string &text, write_format_data &data) const override {
+        if (data.format.newline_before_bracket_open && !data.newline_added) {
+            text += '\n';
+            text += data.prefix;
+        }
         if (values.empty()) text += "{}";
         else {
             text.push_back('{');
+            data.prefix.append(data.format.intendtext);
+            if (data.format.newline_after_braces_open || data.format.newline_before_object_member) {
+                text += '\n';
+                text += data.prefix;
+                data.newline_added = true;
+            }
             auto itr = std::begin(values);
+            text.push_back('"');
             text += itr->first;
+            text.push_back('"');
             text.push_back(':');
-            itr->second->write(text);
+            if (itr->second->GetType() == type::Object || itr->second->GetType() == type::Array)
+                data.newline_added = false;
+            else if (data.format.space_after_colon) text.push_back(' ');
+            itr->second->write(text, data);
             itr = std::next(itr);
             while(itr != std::end(values)) {
                 text.push_back(',');
+                if (data.format.newline_after_comma || data.format.newline_before_object_member) {
+                    text += '\n';
+                    text += data.prefix;
+                    data.newline_added = true;
+                } else if (data.format.space_after_comma) text.push_back(' ');
+                text.push_back('"');
                 text += itr->first;
+                text.push_back('"');
                 text.push_back(':');
-                itr->second->write(text);
+                if (itr->second->GetType() == type::Object || itr->second->GetType() == type::Array)
+                    data.newline_added = false;
+                else if (data.format.space_after_colon) text.push_back(' ');
+                itr->second->write(text, data);
                 itr = std::next(itr);
+            }
+            const auto prefixsize = data.prefix.size();
+            const auto intendsize = data.format.intendtext.size();
+            data.prefix.erase(prefixsize - intendsize, intendsize);
+            if (data.format.newline_before_braces_close) {
+                text += '\n';
+                text += data.prefix;
             }
             text.push_back('}');
         }
+        if (data.format.newline_after_braces_close) {
+            text += '\n';
+            text += data.prefix;
+            data.newline_added = true;
+        } else data.newline_added = false;
     }
 
     Value &operator[](const std::string &key) const override {
@@ -723,5 +883,11 @@ constexpr Value *Value::ParseInternal(const char *&text, size_t &size) {
 
 constexpr inline Value *Parse(const char *&text, size_t &size) { return Value::Parse(text, size); }
 constexpr inline Value *Parse(const std::string &text) { return Value::Parse(text); }
+constexpr inline std::string write(const Value &value, const write_format &format) {
+    std::string result;
+    write_format_data dataformat {{}, true, format };
+    value.write(result, dataformat);
+    return result;
+}
 
 } // namespace rohit::json
