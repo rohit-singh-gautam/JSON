@@ -252,6 +252,8 @@ protected:
     }
 
 public:
+    virtual void write(std::string &text) = 0;
+
     virtual ~Value() = default;
 
     virtual type GetType() const noexcept { return type::Error; }
@@ -286,8 +288,7 @@ public:
     }
 
 protected:
-    static Value *ParseInternal(const char *&text, size_t &size);
-    template <int sign = 0>
+    static constexpr Value *ParseInternal(const char *&text, size_t &size);
     static constexpr Value *ParseIntegerOrFloat(const char *&text, size_t &size);
 
     static constexpr std::string ParseString(const char *&text, size_t &size) {
@@ -364,6 +365,11 @@ protected:
 public:
     Bool(bool value) : value { value } { }
 
+    void write(std::string &text) override {
+        if (value) text += "true";
+        else text += "false";
+    }
+
     type GetType() const noexcept override { return type::Bool; }
 
     bool &GetBool() override { return value; }
@@ -374,9 +380,13 @@ public:
 
 class Integer : public Value {
     int value;
-
+    
 public:
     Integer(const int value) : value { value } { }
+
+    void write(std::string &text) override {
+        text += std::to_string(value);
+    }
 
     type GetType() const noexcept override { return type::NumberInt; }
 
@@ -392,6 +402,10 @@ class Float : public Value {
 public:
     Float(const double value) : value { value } { }
 
+    void write(std::string &text) override {
+        text += std::to_string(value);
+    }
+
     type GetType() const noexcept override { return type::NumberFloat; }
 
     bool GetBool() const override { return value != 0; }
@@ -401,11 +415,99 @@ public:
 
 };
 
+class String : public Value {
+    std::string value;
+
+public:
+    String(const std::string &value) : value { value } { }
+    String(const std::string &&value) : value { std::move(value) } { }
+
+    void write(std::string &text) override {
+        text.push_back('"');
+        EscapeString(value, text);
+        text.push_back('"');
+    }
+
+    const std::string_view GetStringView() const override { return { value.c_str(), value.size() }; }
+
+    std::string &GetString() override { return value; }
+    const std::string &GetString() const override { return value; }
+
+    type GetType() const noexcept override { return type::String; }
+
+    static constexpr Value *Parse(const char *&text, size_t &size) {
+        auto value = ParseString(text, size);
+        return new String { std::move(value) };
+    }
+
+    // This may not be exact original value
+    static constexpr void EscapeString(const std::string &original, std::string &newstr) {
+        auto itr = std::begin(original);
+        while(itr != std::end(original)) {
+            switch(*itr) {
+            case '"':
+                newstr.push_back('\\');
+                newstr.push_back('"');
+                break;
+            case '\\':
+                newstr.push_back('\\');
+                newstr.push_back('\\');
+                break;
+            case '\b':
+                newstr.push_back('\\');
+                newstr.push_back('b');
+                break;
+            case '\f':
+                newstr.push_back('\\');
+                newstr.push_back('f');
+                break;
+            case '\n':
+                newstr.push_back('\\');
+                newstr.push_back('n');
+                break;
+            case '\r':
+                newstr.push_back('\\');
+                newstr.push_back('r');
+                break;
+            case '\t':
+                newstr.push_back('\\');
+                newstr.push_back('t');
+                break;
+            default:
+                if (*itr >= 32) newstr.push_back(*itr);
+                else {
+                    const auto val = static_cast<uint8_t>(*itr);
+                    newstr += "u00";
+                    newstr.push_back('0' + (val/16));
+                    newstr.push_back('0' + (val%16));
+                }
+                break;
+            }
+            itr = std::next(itr);
+        }
+    }
+};
+
 
 class Array : public Value {
     std::vector<std::unique_ptr<Value>> values { };
 
 public:
+    void write(std::string &text) override {
+        if (values.empty()) text += "[]";
+        else {
+            text.push_back('[');
+            auto itr = std::begin(values);
+            (*itr)->write(text);
+            itr = std::next(itr);
+            while(itr != std::end(values)) {
+                text.push_back(',');
+                (*itr)->write(text);
+                itr = std::next(itr);
+            }
+            text.push_back(']');
+        }
+    }
 
     Value &operator[](size_t index) const override { 
         if (index >= values.size()) throw ArrayOutOfRangeException { };
@@ -444,31 +546,30 @@ public:
 
 };
 
-class String : public Value {
-    std::string value;
-public:
-    String(const std::string &value) : value { value } { }
-    String(const std::string &&value) : value { std::move(value) } { }
-
-    const std::string_view GetStringView() const override { return { value.c_str(), value.size() }; }
-
-    std::string &GetString() override { return value; }
-    const std::string &GetString() const override { return value; }
-
-    type GetType() const noexcept override { return type::String; }
-
-    static constexpr Value *Parse(const char *&text, size_t &size) {
-        auto value = ParseString(text, size);
-        return new String { std::move(value) };
-    }
-};
-
-
 class Object : public Value {
     // unordered_map fails with -fanalyzer
     std::map<std::string, std::unique_ptr<Value>> values { };
     
 public:
+    void write(std::string &text) override {
+        if (values.empty()) text += "{}";
+        else {
+            text.push_back('{');
+            auto itr = std::begin(values);
+            text += itr->first;
+            text.push_back(':');
+            itr->second->write(text);
+            itr = std::next(itr);
+            while(itr != std::end(values)) {
+                text.push_back(',');
+                text += itr->first;
+                text.push_back(':');
+                itr->second->write(text);
+                itr = std::next(itr);
+            }
+            text.push_back('}');
+        }
+    }
 
     Value &operator[](const std::string &key) const override {
         auto itr = values.find(key);
@@ -520,45 +621,42 @@ public:
     }
 };
 
-template <const int sign>
 constexpr Value *Value::ParseIntegerOrFloat(const char *&text, size_t &size) {
-    static_assert(sign == 1 || sign == -1 || sign == 0, "Sign can be 1 or -1 only");
     if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
     auto itr = text;
     auto end = text + size;
+    if (*itr == '-' || *itr == '+') ++itr;
+    if (itr == end) throw JsonParseException { itr, size, exception_t::BAD_NUMBER_FORMAT };
     if (*itr < '0' || *itr > '9') throw JsonParseException { itr, size, exception_t::BAD_NUMBER_FORMAT };
     ++itr;
     // Find text, float, string or error
     bool is_float = false;
 
-    // TODO: Implement exponent
     while(itr !=end) {
         if (*itr == '.') {
-            if (is_float) throw JsonParseException { itr, size, exception_t::BAD_FLOAT_FORMAT };
             is_float = true;
-        }
-        if (IsWS(*itr) || *itr == ',' || *itr == ']' || *itr == '}') break;
-        if (*itr < '0' || *itr > '9') throw JsonParseException { itr, size, exception_t::BAD_NUMBER_FORMAT };
+            break;
+        } else if (*itr < '0' || *itr > '9') break;
         ++itr;
     };
 
     if (is_float) {
         double value { };
-        auto ret = std::from_chars(text, itr, value);
-        size -= ret.ptr - itr;
+        auto ret = std::from_chars(text, end, value);
+        size -= ret.ptr - text;
         text = ret.ptr;
         return new Float { value };
     } else {
         int value { };
-        auto ret = std::from_chars(text, itr, value);
+        auto ret = std::from_chars(text, end, value);
         size -= ret.ptr - text;
         text = ret.ptr;
         return new Integer { value };
     }
 }
 
-
-Value *Value::ParseInternal(const char *&text, size_t &size) {
+// Constexpr makes it inline and avoid duplicate definitions warning
+constexpr Value *Value::ParseInternal(const char *&text, size_t &size) {
     Value::SkipWS(text, size);
     switch(*text) {
     case BeginArray: {
@@ -576,14 +674,12 @@ Value *Value::ParseInternal(const char *&text, size_t &size) {
         }
 
     case '-': {
-            ++text; --size;
-            auto ret = Value::ParseIntegerOrFloat<-1>(text, size);
+            auto ret = Value::ParseIntegerOrFloat(text, size);
             Value::SkipWS(text, size);
             return ret;
         }
     case '+': {
-            ++text; --size;
-            auto ret = Value::ParseIntegerOrFloat<1>(text, size);
+            auto ret = Value::ParseIntegerOrFloat(text, size);
             Value::SkipWS(text, size);
             return ret;
         }
@@ -625,5 +721,7 @@ Value *Value::ParseInternal(const char *&text, size_t &size) {
     }
 }
 
+constexpr inline Value *Parse(const char *&text, size_t &size) { return Value::Parse(text, size); }
+constexpr inline Value *Parse(const std::string &text) { return Value::Parse(text); }
 
 } // namespace rohit::json
