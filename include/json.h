@@ -18,6 +18,14 @@
 
 namespace rohit::json {
 
+// Change this to unordered_map in case unordered_map is require.
+// unordered_map results int to memory leak error with gcc -fanalyzer
+template <typename KeyT, typename ValueT>
+using map = std::map<KeyT, ValueT>;
+
+template <typename KeyT>
+using vector = std::vector<KeyT>;
+
 struct write_format {
     bool newline_before_braces_open;
     bool newline_after_braces_open;
@@ -336,6 +344,7 @@ public:
 
     virtual Value &operator[](size_t) const { throw NotArraryOrMapException { }; }
     virtual Value &operator[](const std::string &) const { throw NotArraryOrMapException { }; }
+    virtual bool operator==(const Value& other) const = 0;
 
     virtual bool &GetBool() { throw NotBoolException { }; }
     virtual bool GetBool() const { throw NotBoolException { }; }
@@ -441,6 +450,13 @@ protected:
 public:
     Bool(bool value) : value { value } { }
 
+    bool operator==(const Value& other) const override { 
+        auto rhs = dynamic_cast<const Bool *>(&other);
+        return value == rhs->value;
+    }
+    bool operator==(const Bool& other) const = delete;
+    bool operator==(const Bool& other) = delete;
+
     void write(std::string &text, write_format_data &data) const override {
         if (data.format.all_data_on_newline && !data.newline_added) {
             text += '\n';
@@ -465,6 +481,13 @@ class Integer : public Value {
 public:
     Integer(const int value) : value { value } { }
 
+    bool operator==(const Value& other) const override { 
+        auto rhs = dynamic_cast<const Integer *>(&other);
+        return value == rhs->value;
+    }
+    bool operator==(const Integer& other) const = delete;
+    bool operator==(const Integer& other) = delete;
+
     void write(std::string &text, write_format_data &data) const override {
         if (data.format.all_data_on_newline && !data.newline_added) {
             text += '\n';
@@ -488,6 +511,13 @@ class Float : public Value {
 public:
     Float(const double value) : value { value } { }
 
+    bool operator==(const Value& other) const override { 
+        auto rhs = dynamic_cast<const Float *>(&other);
+        return value == rhs->value;
+    }
+    bool operator==(const Float& other) const = delete;
+    bool operator==(const Float& other) = delete;
+
     void write(std::string &text, write_format_data &data) const override {
         if (data.format.all_data_on_newline && !data.newline_added) {
             text += '\n';
@@ -501,7 +531,7 @@ public:
 
     bool GetBool() const override { return value != 0; }
     int GetInt() const override { return static_cast<int>(value); }
-    double GetFloat() const throw()override { return value; }
+    double GetFloat() const override { return value; }
     double &GetFloat() override { return value; }
 
 };
@@ -512,6 +542,13 @@ class String : public Value {
 public:
     String(const std::string &value) : value { value } { }
     String(const std::string &&value) : value { std::move(value) } { }
+
+    bool operator==(const Value& other) const override { 
+        auto rhs = dynamic_cast<const String *>(&other);
+        return value == rhs->value;
+    }
+    bool operator==(const String& other) const = delete;
+    bool operator==(const String& other) = delete;
 
     void write(std::string &text, write_format_data &data) const override {
         if (data.format.all_data_on_newline && !data.newline_added) {
@@ -526,6 +563,14 @@ public:
 
     const std::string_view GetStringView() const override { return { value.c_str(), value.size() }; }
 
+    bool GetBool() const override { 
+        if (value == "true") return true;
+        if (value == "false") return true;
+        int ival = std::stoi(value);
+        return !!ival;
+    }
+    int GetInt() const override { return std::stoi(value); }
+    double GetFloat() const override { return std::stod(value); }
     std::string &GetString() override { return value; }
     const std::string &GetString() const override { return value; }
 
@@ -586,9 +631,20 @@ public:
 
 
 class Array : public Value {
-    std::vector<std::unique_ptr<Value>> values { };
+    vector<std::unique_ptr<Value>> values { };
 
 public:
+    bool operator==(const Value& other) const override { 
+        auto rhs = dynamic_cast<const Array *>(&other);
+        if (values.size() != rhs->values.size()) return false;
+        for(size_t index { 0 }; index < values.size(); ++index) {
+            if (*values[index] != *rhs->values[index]) return false;
+        }
+        return true;
+    }
+    bool operator==(const Array& other) const = delete;
+    bool operator==(const Array& other) = delete;
+
     void write(std::string &text, write_format_data &data) const override {
         if (data.format.newline_before_bracket_open && !data.newline_added) {
             text += '\n';
@@ -643,6 +699,106 @@ public:
         return *values[index];
     }
 
+    void push_back(const bool value) {
+        auto json = new Bool { value };
+        values.emplace_back(json);
+    }
+
+    void push_back(const int value) {
+        auto json = new Integer { value };
+        values.emplace_back(json);
+    }
+
+    void push_back(const double value) {
+        auto json = new Float { value };
+        values.emplace_back(json);
+    }
+
+    void push_back(const std::string &value) {
+        auto json = new String { value };
+        values.emplace_back(json);
+    }
+
+    void push_back(std::string &&value) {
+        auto json = new String { std::move(value) };
+        values.emplace_back(json);
+    }
+
+    void push_back(Value *json) {
+        values.emplace_back(json);
+    }
+
+    void push_back(std::unique_ptr<Value> &&json) {
+        values.push_back(std::move(json));
+    }
+
+    /*! This will return all the integer, it will try to convert it to integer for string and bool.
+     * if any of fails to retrieve it will throw exception if exclude_non_int is set otherwise it will thorw exception
+     */
+    vector<int> GetIntVector(bool exclude_non_int = true) {
+        vector<int> ret { };
+        if (exclude_non_int) {
+            for(auto &value: values) {
+                try {
+                    ret.push_back(value->GetInt());
+                } catch(NotIntegerException &) {}
+            }
+        } else {
+            for(auto &value: values) {
+                ret.push_back(value->GetInt());
+            }
+        }
+        return ret;
+    }
+
+    vector<bool> GetBoolVector(bool exclude_non_bool = true) {
+        vector<bool> ret { };
+        if (exclude_non_bool) {
+            for(auto &value: values) {
+                try {
+                    ret.push_back(value->GetBool());
+                } catch(NotIntegerException &) {}
+            }
+        } else {
+            for(auto &value: values) {
+                ret.push_back(value->GetBool());
+            }
+        }
+        return ret;
+    }
+
+    vector<float> GetFloatVector(bool exclude_non_float = true) {
+        vector<float> ret { };
+        if (exclude_non_float) {
+            for(auto &value: values) {
+                try {
+                    ret.push_back(value->GetFloat());
+                } catch(NotIntegerException &) {}
+            }
+        } else {
+            for(auto &value: values) {
+                ret.push_back(value->GetFloat());
+            }
+        }
+        return ret;
+    }
+
+    vector<std::string> GetStringVector(bool exclude_non_string = true) {
+        vector<std::string> ret { };
+        if (exclude_non_string) {
+            for(auto &value: values) {
+                try {
+                    ret.push_back(value->GetString());
+                } catch(NotIntegerException &) {}
+            }
+        } else {
+            for(auto &value: values) {
+                ret.push_back(value->GetString());
+            }
+        }
+        return ret;
+    }
+
     type GetType() const noexcept override { return type::Array; }
 
 
@@ -671,9 +827,24 @@ public:
 
 class Object : public Value {
     // unordered_map fails with -fanalyzer
-    std::map<std::string, std::unique_ptr<Value>> values { };
+    map<std::string, std::unique_ptr<Value>> values { };
     
 public:
+
+    bool operator==(const Value& other) const override { 
+        auto rhs = dynamic_cast<const Object *>(&other);
+        if (values.size() != rhs->values.size()) return false;
+        for(auto &value: values) {
+            auto itr = rhs->values.find(value.first);
+            if (itr == std::end(rhs->values)) return false;
+            if (*value.second != *itr->second) return false;
+        }
+        return true;
+    }
+    bool operator==(const Object& other) const = delete;
+    bool operator==(const Object& other) = delete;
+    
+
     void write(std::string &text, write_format_data &data) const override {
         if (data.format.newline_before_bracket_open && !data.newline_added) {
             text += '\n';
@@ -779,7 +950,168 @@ public:
         ++text; --size;
         return value;
     }
-};
+
+    void insert(std::string key, const bool value) {
+        auto json = new Bool { value };
+        values.emplace(key, json);
+    }
+
+    void insert(std::string key, const int value) {
+        auto json = new Integer { value };
+        values.emplace(key, json);
+    }
+
+    void insert(std::string key, const double value) {
+        auto json = new Float { value };
+        values.emplace(key, json);
+    }
+
+    void insert(std::string key, const std::string &value) {
+        auto json = new String { value };
+        values.emplace(key, json);
+    }
+
+    void insert(std::string key, std::string &&value) {
+        auto json = new String { std::move(value) };
+        values.emplace(key, json);
+    }
+
+    void emblace_back(std::string key, Value *json) {
+        values.emplace(key, json);
+    }
+
+    void insert(std::string key, std::unique_ptr<Value> &&json) {
+        values.emplace(key, std::move(json));
+    }
+
+    vector<int> GetIntVector(bool exclude_non_int = true) {
+        vector<int> ret { };
+        if (exclude_non_int) {
+            for(auto &value: values) {
+                try {
+                    ret.push_back(value.second->GetInt());
+                } catch(NotIntegerException &) {}
+            }
+        } else {
+            for(auto &value: values) {
+                ret.push_back(value.second->GetInt());
+            }
+        }
+        return ret;
+    }
+
+    vector<bool> GetBoolVector(bool exclude_non_bool = true) {
+        vector<bool> ret { };
+        if (exclude_non_bool) {
+            for(auto &value: values) {
+                try {
+                    ret.push_back(value.second->GetBool());
+                } catch(NotIntegerException &) {}
+            }
+        } else {
+            for(auto &value: values) {
+                ret.push_back(value.second->GetBool());
+            }
+        }
+        return ret;
+    }
+
+    vector<float> GetFloatVector(bool exclude_non_float = true) {
+        vector<float> ret { };
+        if (exclude_non_float) {
+            for(auto &value: values) {
+                try {
+                    ret.push_back(value.second->GetFloat());
+                } catch(NotIntegerException &) {}
+            }
+        } else {
+            for(auto &value: values) {
+                ret.push_back(value.second->GetFloat());
+            }
+        }
+        return ret;
+    }
+
+    vector<std::string> GetStringVector(bool exclude_non_string = true) {
+        vector<std::string> ret { };
+        if (exclude_non_string) {
+            for(auto &value: values) {
+                try {
+                    ret.push_back(value.second->GetString());
+                } catch(NotIntegerException &) {}
+            }
+        } else {
+            for(auto &value: values) {
+                ret.push_back(value.second->GetString());
+            }
+        }
+        return ret;
+    }
+
+    map<std::string, int> GetIntMap(bool exclude_non_int = true) {
+        map<std::string, int> ret { };
+        if (exclude_non_int) {
+            for(auto &value: values) {
+                try {
+                    ret.emplace(value.first, value.second->GetInt());
+                } catch(NotIntegerException &) {}
+            }
+        } else {
+            for(auto &value: values) {
+                ret.emplace(value.first, value.second->GetInt());
+            }
+        }
+        return ret;
+    }
+
+    map<std::string, bool> GetBoolMap(bool exclude_non_bool = true) {
+        map<std::string, bool> ret { };
+        if (exclude_non_bool) {
+            for(auto &value: values) {
+                try {
+                    ret.emplace(value.first, value.second->GetBool());
+                } catch(NotIntegerException &) {}
+            }
+        } else {
+            for(auto &value: values) {
+                ret.emplace(value.first, value.second->GetBool());
+            }
+        }
+        return ret;
+    }
+
+    map<std::string, float> GetFloatMap(bool exclude_non_float = true) {
+        map<std::string, float> ret { };
+        if (exclude_non_float) {
+            for(auto &value: values) {
+                try {
+                    ret.emplace(value.first, value.second->GetFloat());
+                } catch(NotIntegerException &) {}
+            }
+        } else {
+            for(auto &value: values) {
+                ret.emplace(value.first, value.second->GetFloat());
+            }
+        }
+        return ret;
+    }
+
+    map<std::string, std::string> GetStringMap(bool exclude_non_string = true) {
+        map<std::string, std::string> ret { };
+        if (exclude_non_string) {
+            for(auto &value: values) {
+                try {
+                    ret.emplace(value.first, value.second->GetString());
+                } catch(NotIntegerException &) {}
+            }
+        } else {
+            for(auto &value: values) {
+                ret.emplace(value.first, value.second->GetString());
+            }
+        }
+        return ret;
+    }
+}; // class Object
 
 constexpr Value *Value::ParseIntegerOrFloat(const char *&text, size_t &size) {
     if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
@@ -855,23 +1187,32 @@ constexpr Value *Value::ParseInternal(const char *&text, size_t &size) {
             Value::SkipWS(text, size);
             return ret;
         }
-    case 'f': {
+    case 'f':    
+    case 'F': {
             if (size < 5) throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD_OR_PREMATURE_TERMINATION };
             ++text;
-            if (*text++ != 'a') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            if (*text++ != 'l') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            if (*text++ != 's') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            if (*text++ != 'e') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
+            if (*text != 'a' && *text != 'A') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
+            ++text;
+            if (*text != 'l' && *text != 'L') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
+            ++text;
+            if (*text != 's' && *text != 'S') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
+            ++text;
+            if (*text != 'e' && *text != 'E') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
+            ++text;
             size -= 5;
             Value::SkipWS(text, size);
             return new Bool { false };
         }
-    case 't': {
+    case 't':
+    case 'T': {
             if (size < 4) throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD_OR_PREMATURE_TERMINATION };
             ++text;
-            if (*text++ != 'r') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            if (*text++ != 'u') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            if (*text++ != 'e') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
+            if (*text != 'r' && *text != 'R') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
+            ++text;
+            if (*text != 'u' && *text != 'U') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
+            ++text;
+            if (*text != 'e' && *text != 'E') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
+            ++text;
             size -= 4;
             Value::SkipWS(text, size);
             return new Bool { true };

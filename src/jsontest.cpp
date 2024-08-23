@@ -133,8 +133,7 @@ TEST(JSONTest, JsonObject) {
         "    }\n"
         "}\n"
     };
-    rohit::json::Value *jsonvalueptr = rohit::json::Parse(value);
-    rohit::json::Value &jsonvalue = *jsonvalueptr;
+    rohit::json::Value &jsonvalue = *rohit::json::Parse(value);
     EXPECT_TRUE(jsonvalue["Key1"]["key11"].GetString() == "Value1");
     EXPECT_TRUE(jsonvalue["Key1"]["key13"][2].GetInt() == 2);
 
@@ -152,9 +151,8 @@ TEST(JSONTest, JsonObject) {
     };
     EXPECT_TRUE(newjson2 == expectedjson2);
 
-    // std::cout << "Compressed: " << newjson << std::endl;
-    // std::cout << "Beautified: " << newjson1 << std::endl;
-    // std::cout << "Beautified Vertical: " << newjson2 << std::endl;
+    rohit::json::Value &jsonvalue1 = *rohit::json::Parse(value);
+    EXPECT_TRUE(jsonvalue == jsonvalue1);
 }
 
 int main(int argc, char *argv[]) {
