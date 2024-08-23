@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License    //
 // along with this program.  If not, see <https://www.gnu.org/licenses/ //
 //////////////////////////////////////////////////////////////////////////
+// JSON Libaary based on https://www.rfc-editor.org/rfc/rfc8259
 
 #pragma once
 #include <exception>
@@ -25,8 +26,6 @@
 #include <map>
 #include <format>
 #include <charconv>
-
-// This is based on https://www.rfc-editor.org/rfc/rfc8259
 
 namespace rohit::json {
 

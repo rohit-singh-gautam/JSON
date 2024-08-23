@@ -38,7 +38,7 @@ std::string GetFromFile(const std::filesystem::path &path) {
 
 int main(int argc, char *argv[]) {
     if (argc != 2 && argc != 3) {
-        std::cout << std::format("Usage: {} <input json file> [output json file]", argv[0]);
+        std::cout << "Usage: " << argv[0] << " <input json file> [output json file]" << std::endl;
         return 0;
     }
 
