@@ -17,6 +17,25 @@
 
 #include <json.h>
 #include <gtest/gtest.h>
+#include <filesystem>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <exception>
+
+std::string GetFromFile(const std::filesystem::path &path) {
+    if (!std::filesystem::is_regular_file(path)) {
+        throw std::invalid_argument { "Not a valid file" };
+    }
+    std::ifstream filestream { path };
+    std::stringstream buffer { };
+    buffer << filestream.rdbuf();
+
+    std::string content = buffer.str();
+    filestream.close();
+    return content;
+}
+
 
 bool StringCreateAndMatch(const std::string &value) {
     std::string json { "\"" };
@@ -117,6 +136,8 @@ TEST(JSONTest, StringTest) {
         EXPECT_TRUE(StringCreateAndMatch(value));
 }
 
+
+
 TEST(JSONTest, JsonArray) {
     const std::string value { "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]"};
     rohit::json::Value *jsonvalue = rohit::json::Parse(value);
@@ -163,8 +184,16 @@ TEST(JSONTest, JsonObject) {
     };
     EXPECT_TRUE(newjson2 == expectedjson2);
 
-    rohit::json::Value &jsonvalue1 = *rohit::json::Parse(value);
+    rohit::json::Value &jsonvalue1 = *rohit::json::Parse(newjson1);
     EXPECT_TRUE(jsonvalue == jsonvalue1);
+}
+
+TEST(JSONTest, JSONFile) {
+    const std::string jsonstr = GetFromFile("./resources/simpleprofile.json");
+    auto json = rohit::json::Parse(jsonstr);
+    std::vector<std::string> courses { "Math", "Physics", "Chemistry" };
+    auto jsoncourses = (*json)["courses"].GetStringVector(false);
+    EXPECT_TRUE(courses == jsoncourses);
 }
 
 int main(int argc, char *argv[]) {

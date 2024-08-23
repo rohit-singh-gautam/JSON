@@ -17,3 +17,5 @@ set_property(TARGET JSONTest PROPERTY CXX_STANDARD 23)
 target_link_libraries(JSONTest PRIVATE GTest::gtest_main)
 
 add_test(JSONTest JSONTest)
+
+file(COPY resources DESTINATION .)

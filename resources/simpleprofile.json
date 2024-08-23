@@ -1,0 +1,11 @@
+{
+  "name": "Vivek",
+  "age": 45,
+  "isStudent": true,
+  "courses": ["Math", "Physics", "Chemistry"],
+  "address": {
+    "street": "4th Cross, Indranagar",
+    "city": "Bangalore",
+    "zipCode": "500035"
+  }
+}

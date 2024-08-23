@@ -368,6 +368,30 @@ public:
     virtual const std::string_view GetStringView() const { throw NotStringException { }; }
     virtual std::string &GetString() { throw NotStringException { }; }
     virtual const std::string &GetString() const { throw NotStringException { }; }
+    virtual void push_back(const bool) { throw NotArraryOrMapException { }; }
+    virtual void push_back(const int) { throw NotArraryOrMapException { }; }
+    virtual void push_back(const double) { throw NotArraryOrMapException { }; }
+    virtual void push_back(const std::string &) { throw NotArraryOrMapException { }; }
+    virtual void push_back(std::string &&) { throw NotArraryOrMapException { }; }
+    virtual void push_back(Value *) { throw NotArraryOrMapException { }; }
+    virtual void push_back(std::unique_ptr<Value> &&) { throw NotArraryOrMapException { }; }
+    virtual vector<int> GetIntVector(bool) { throw NotArraryOrMapException { }; }
+    virtual vector<bool> GetBoolVector(bool) { throw NotArraryOrMapException { }; }
+    virtual vector<float> GetFloatVector(bool) { throw NotArraryOrMapException { }; }
+    virtual vector<std::string> GetStringVector(bool) { throw NotArraryOrMapException { }; }
+    virtual void insert(std::string, const bool) { throw NotArraryOrMapException { }; }
+    virtual void insert(std::string, const int)  { throw NotArraryOrMapException { }; }
+    virtual void insert(std::string, const double)  { throw NotArraryOrMapException { }; }
+    virtual void insert(std::string, const std::string &)  { throw NotArraryOrMapException { }; }
+    virtual void insert(std::string, std::string &&)  { throw NotArraryOrMapException { }; }
+    virtual void insert(std::string, Value *)  { throw NotArraryOrMapException { }; }
+    virtual void insert(std::string, std::unique_ptr<Value> &&) { throw NotArraryOrMapException { }; }
+    virtual map<std::string, int> GetIntMap(bool) { throw NotArraryOrMapException { }; }
+    virtual map<std::string, bool> GetBoolMap(bool) { throw NotArraryOrMapException { }; }
+    virtual map<std::string, float> GetFloatMap(bool) { throw NotArraryOrMapException { }; }
+    virtual map<std::string, std::string> GetStringMap(bool) { throw NotArraryOrMapException { }; }
+
+
 
     static Value *Parse(const char *&text, size_t &size) {
         try {
@@ -711,43 +735,43 @@ public:
         return *values[index];
     }
 
-    void push_back(const bool value) {
+    void push_back(const bool value) override {
         auto json = new Bool { value };
         values.emplace_back(json);
     }
 
-    void push_back(const int value) {
+    void push_back(const int value) override {
         auto json = new Integer { value };
         values.emplace_back(json);
     }
 
-    void push_back(const double value) {
+    void push_back(const double value) override {
         auto json = new Float { value };
         values.emplace_back(json);
     }
 
-    void push_back(const std::string &value) {
+    void push_back(const std::string &value) override {
         auto json = new String { value };
         values.emplace_back(json);
     }
 
-    void push_back(std::string &&value) {
+    void push_back(std::string &&value) override {
         auto json = new String { std::move(value) };
         values.emplace_back(json);
     }
 
-    void push_back(Value *json) {
+    void push_back(Value *json) override {
         values.emplace_back(json);
     }
 
-    void push_back(std::unique_ptr<Value> &&json) {
+    void push_back(std::unique_ptr<Value> &&json) override {
         values.push_back(std::move(json));
     }
 
     /*! This will return all the integer, it will try to convert it to integer for string and bool.
      * if any of fails to retrieve it will throw exception if exclude_non_int is set otherwise it will thorw exception
      */
-    vector<int> GetIntVector(bool exclude_non_int = true) {
+    vector<int> GetIntVector(bool exclude_non_int = true) override {
         vector<int> ret { };
         if (exclude_non_int) {
             for(auto &value: values) {
@@ -763,7 +787,7 @@ public:
         return ret;
     }
 
-    vector<bool> GetBoolVector(bool exclude_non_bool = true) {
+    vector<bool> GetBoolVector(bool exclude_non_bool = true) override {
         vector<bool> ret { };
         if (exclude_non_bool) {
             for(auto &value: values) {
@@ -779,7 +803,7 @@ public:
         return ret;
     }
 
-    vector<float> GetFloatVector(bool exclude_non_float = true) {
+    vector<float> GetFloatVector(bool exclude_non_float = true) override {
         vector<float> ret { };
         if (exclude_non_float) {
             for(auto &value: values) {
@@ -795,7 +819,7 @@ public:
         return ret;
     }
 
-    vector<std::string> GetStringVector(bool exclude_non_string = true) {
+    vector<std::string> GetStringVector(bool exclude_non_string = true) override {
         vector<std::string> ret { };
         if (exclude_non_string) {
             for(auto &value: values) {
@@ -963,40 +987,40 @@ public:
         return value;
     }
 
-    void insert(std::string key, const bool value) {
+    void insert(std::string key, const bool value) override {
         auto json = new Bool { value };
         values.emplace(key, json);
     }
 
-    void insert(std::string key, const int value) {
+    void insert(std::string key, const int value) override {
         auto json = new Integer { value };
         values.emplace(key, json);
     }
 
-    void insert(std::string key, const double value) {
+    void insert(std::string key, const double value) override {
         auto json = new Float { value };
         values.emplace(key, json);
     }
 
-    void insert(std::string key, const std::string &value) {
+    void insert(std::string key, const std::string &value) override {
         auto json = new String { value };
         values.emplace(key, json);
     }
 
-    void insert(std::string key, std::string &&value) {
+    void insert(std::string key, std::string &&value) override {
         auto json = new String { std::move(value) };
         values.emplace(key, json);
     }
 
-    void emblace_back(std::string key, Value *json) {
+    void insert(std::string key, Value *json) override {
         values.emplace(key, json);
     }
 
-    void insert(std::string key, std::unique_ptr<Value> &&json) {
+    void insert(std::string key, std::unique_ptr<Value> &&json) override {
         values.emplace(key, std::move(json));
     }
 
-    vector<int> GetIntVector(bool exclude_non_int = true) {
+    vector<int> GetIntVector(bool exclude_non_int = true) override {
         vector<int> ret { };
         if (exclude_non_int) {
             for(auto &value: values) {
@@ -1012,7 +1036,7 @@ public:
         return ret;
     }
 
-    vector<bool> GetBoolVector(bool exclude_non_bool = true) {
+    vector<bool> GetBoolVector(bool exclude_non_bool = true) override {
         vector<bool> ret { };
         if (exclude_non_bool) {
             for(auto &value: values) {
@@ -1028,7 +1052,7 @@ public:
         return ret;
     }
 
-    vector<float> GetFloatVector(bool exclude_non_float = true) {
+    vector<float> GetFloatVector(bool exclude_non_float = true) override {
         vector<float> ret { };
         if (exclude_non_float) {
             for(auto &value: values) {
@@ -1044,7 +1068,7 @@ public:
         return ret;
     }
 
-    vector<std::string> GetStringVector(bool exclude_non_string = true) {
+    vector<std::string> GetStringVector(bool exclude_non_string = true) override {
         vector<std::string> ret { };
         if (exclude_non_string) {
             for(auto &value: values) {
@@ -1060,7 +1084,7 @@ public:
         return ret;
     }
 
-    map<std::string, int> GetIntMap(bool exclude_non_int = true) {
+    map<std::string, int> GetIntMap(bool exclude_non_int = true) override {
         map<std::string, int> ret { };
         if (exclude_non_int) {
             for(auto &value: values) {
@@ -1076,7 +1100,7 @@ public:
         return ret;
     }
 
-    map<std::string, bool> GetBoolMap(bool exclude_non_bool = true) {
+    map<std::string, bool> GetBoolMap(bool exclude_non_bool = true) override {
         map<std::string, bool> ret { };
         if (exclude_non_bool) {
             for(auto &value: values) {
@@ -1092,7 +1116,7 @@ public:
         return ret;
     }
 
-    map<std::string, float> GetFloatMap(bool exclude_non_float = true) {
+    map<std::string, float> GetFloatMap(bool exclude_non_float = true) override {
         map<std::string, float> ret { };
         if (exclude_non_float) {
             for(auto &value: values) {
@@ -1108,7 +1132,7 @@ public:
         return ret;
     }
 
-    map<std::string, std::string> GetStringMap(bool exclude_non_string = true) {
+    map<std::string, std::string> GetStringMap(bool exclude_non_string = true) override {
         map<std::string, std::string> ret { };
         if (exclude_non_string) {
             for(auto &value: values) {
