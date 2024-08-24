@@ -23,6 +23,20 @@
 #include <sstream>
 #include <exception>
 
+#pragma GCC diagnostic ignored "-Wanalyzer-malloc-leak"
+const std::vector<std::string> samplejsonlist {
+    "{\n"
+    "    \"Key1\" : {\n"
+    "        \"key11\" : \"Value1\",\n"
+    "        \"key12\" : 32,\n"
+    "        \"key13\" : [0, 1, 2, 3, 4, 5, 6],\n"
+    "        \"key14\" :true,\n"
+    "    }\n"
+    "}\n",
+    "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]",
+    "[0, 1, 2, [\"Test1\", \"Test2\", \"Test3\"], 4, 5, 6]"
+};
+
 std::string GetFromFile(const std::filesystem::path &path) {
     if (!std::filesystem::is_regular_file(path)) {
         throw std::invalid_argument { "Not a valid file" };
@@ -139,13 +153,13 @@ TEST(JSONTest, StringTest) {
 
 
 TEST(JSONTest, JsonArray) {
-    const std::string value { "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]"};
+    const std::string &value = samplejsonlist[1];
     auto json = rohit::json::Parse(value);
     EXPECT_TRUE(json[0].GetInt() == 0);
     EXPECT_TRUE(json[2].GetInt() == 2);
     EXPECT_TRUE(json[6].GetInt() == 6);
 
-    const std::string value1 { "[0, 1, 2, [\"Test1\", \"Test2\", \"Test3\"], 4, 5, 6]"};
+    const std::string &value1 = samplejsonlist[2];
     auto json1 = rohit::json::Parse(value1);
     EXPECT_TRUE(json1[3][0].GetString() == "Test1");
     EXPECT_TRUE(json1[3][2].GetString() == "Test3");
@@ -156,16 +170,7 @@ TEST(JSONTest, JsonArray) {
 }
 
 TEST(JSONTest, JsonObject) {
-    const std::string value {
-        "{\n"
-        "    \"Key1\" : {\n"
-        "        \"key11\" : \"Value1\",\n"
-        "        \"key12\" : 32,\n"
-        "        \"key13\" : [0, 1, 2, 3, 4, 5, 6],\n"
-        "        \"key14\" :true,\n"
-        "    }\n"
-        "}\n"
-    };
+    const std::string &value = samplejsonlist[0];
     auto jsonref = rohit::json::Parse(value);
     EXPECT_TRUE(jsonref["Key1"]["key11"].GetString() == "Value1");
     EXPECT_TRUE(jsonref["Key1"]["key13"][2].GetInt() == 2);
@@ -198,7 +203,7 @@ TEST(JSONTest, JSONFile) {
 
 constexpr int ConstExprJSON() {
     const std::string value { "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]"};
-    auto json = rohit::json::Ref { value };
+    auto json = rohit::json::Parse(value);
     int int_value = json[2].GetInt();
     return int_value;
 }
@@ -206,6 +211,16 @@ constexpr int ConstExprJSON() {
 TEST(JSONTest, JSONConstExpr) {
     int value = ConstExprJSON();
     EXPECT_TRUE(value == 2);
+}
+
+TEST(JSONTest, JSONQuery) {
+    auto json = rohit::json::Parse(samplejsonlist[0]);
+    auto &jsonvalue = json.Query(std::string {"/Key1/key12"});
+    EXPECT_TRUE(jsonvalue.GetType() == rohit::json::type::NumberInt && jsonvalue.GetInt() == 32);
+
+    auto &jsonvalue1 = json.Query(std::string {"/Key1/Key12"});
+    EXPECT_TRUE(jsonvalue1.IsError());
+
 }
 
 int main(int argc, char *argv[]) {

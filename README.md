@@ -71,19 +71,77 @@ Below is json example.
     auto value = json["Key1"]["key19"].GetInt();
     // value == 16
 ```
+Also, true results is zero(0) and false results in one(1)..
+
+#### Checking if element is present in array or object
+Array and Object will return ```rohit::json::Error``` object if object is not found. Any search on it will result in NotArraryOrMapException will result.
+So in previous example below will result in exception.
+```cpp
+    auto value = json["Key1"]["key20"].GetInt();
+    auto value = json["Key2"]["key19"].GetInt();
+    // both results in NotArraryOrMapException
+```
+Above results in exception as "key20" and "Key2" is not present.
+
+```cpp
+    auto value = json["Key2"]
+    auto value = json["Key2"]["key19"]
+    // value.IsError() == true
+```
 
 ### Insertion
+Insertion is only possible with Array and Object. Array exposes push_back function and Object exposes insert function.
+```cpp
+    jsonarray.push_back(10);
+    //or
+    auto jsonvalue = std::make_unique<rohit::json::Integer>(10);
+    jsonarray.push_back(std::move(jsonvalue));
+    //or
+    auto jsonfloat = new rohit::json::Float { 10.10 };
+    jsonarray.push_back(jsonfloat);
+```
+In example 1 Json integer is emplace in to Array directly.
+Second example creates unique pointer that has to be moved into Array.
+Last example a pointer is passed to Array.
+
+For non array or non object value can be directly created.
+
+### Allowed syntax
+#### Caps letter
+As per RFC https://www.rfc-editor.org/rfc/rfc8259 [Page 6]
+Following character is allowed.
+```
+      value = false / null / true / object / array / number / string
+
+      false = %x66.61.6c.73.65   ; false
+
+      null  = %x6e.75.6c.6c      ; null
+
+      true  = %x74.72.75.65      ; true
+```
+This library will all both small and capital letters for each of above.
+### Comma at the end of Array and object
+Following syntax is allowed
+```json
+{
+  "key13":
+  [
+    0, 1, 2, 3, 4, 5, 6,
+  ],
+  "key14": true,
+}
+```
+See comma at the end of 6 and end of true. This is not allowed as per RFC, this library allows it.
 
 
-## Missed
-1. Null object
+## IMPORTANT
+1. Once pointer is passed to Array or Object memory is manager by Array or Object. It will be freed on exit, in case this memory if freed manually double free will occur.
+2. 
 
 ## Roadmap
-1. GetString() for all. As we are returning internal reference this was not possible with other types.
-1. XPATH based access
+1. Copy and Move constructor for all the object, this will help in isolation of child object.
 1. Traverser depth first and breath first.
 1. Interface to loop all the members to Array and Object.
-1. Copy constructor, this will help in isolation of child object.
 
 ## Limitation
 1. std::map is used for storing JSON object data, although this is not required to be sorted. Even though std::unordered_map is much faster it cannot be used as -fanalyzer reports memory leak with it.

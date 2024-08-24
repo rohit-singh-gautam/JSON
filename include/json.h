@@ -153,14 +153,15 @@ enum class exception_t {
 #undef ERROR_T_ENTRY
 };
 
-constexpr const std::string to_string(const exception_t &val) {
-    const std::string exception_string[] = {
-    #define ERROR_T_ENTRY(x, y) std::string(y, sizeof(y) - 1),
+constexpr const char *to_string(const exception_t &val) {
+    constexpr const char *exception_string[] = {
+    #define ERROR_T_ENTRY(x, y) {#x" - " y},
         ERROR_T_LIST
     #undef ERROR_T_ENTRY
     };
     
-    return exception_string[static_cast<size_t>(val)];
+    auto index = static_cast<size_t>(val);
+    return exception_string[index];
 }
 
 class Exception : public std::exception {
@@ -171,7 +172,7 @@ public:
     Exception(const exception_t value) : value { value } { }
     Exception(Exception &&rhs) : std::exception { std::move(rhs) }, value {rhs.value} { }
 
-    const char* what() const noexcept override { return to_string(value).data(); }
+    const char* what() const noexcept override { return to_string(value); }
 };
 
 class NotArraryOrMapException : public Exception {
@@ -277,7 +278,9 @@ public:
             } else errstr.push_back('#');
         }
         if (buffer_remaining > 16) {
-            errstr += " ... more " + std::to_string(buffer_remaining - 16UL) + " characters.";
+            errstr += " ... more ";
+            errstr += std::to_string(buffer_remaining - 16UL);
+            errstr += " characters.";
         }
 
         return errstr;
@@ -308,6 +311,9 @@ enum class type {
 };
 
 class Value {
+public:
+    virtual ~Value() = default;
+
 protected:
     static constexpr const char BeginArray { '[' };
     static constexpr const char BeginObject { '{' };
@@ -335,17 +341,15 @@ protected:
 public:
     virtual constexpr void write(std::string &, write_format_data &) const = 0;
 
-    virtual ~Value() = default;
-
     virtual constexpr type GetType() const noexcept = 0;
-
-    virtual constexpr Value &operator[](size_t) const { throw NotArraryOrMapException { }; }
-    virtual constexpr Value &operator[](const std::string &) const { throw NotArraryOrMapException { }; }
+    virtual constexpr Value *atptr(size_t) const { throw NotArraryOrMapException { }; }
+    virtual constexpr Value *atptr(const std::string &) const { throw NotArraryOrMapException { }; }
     virtual constexpr bool operator==(const Value& other) const = 0;
 
     virtual constexpr bool &GetBool() { throw NotBoolException { }; }
     virtual constexpr bool GetBool() const { throw NotBoolException { }; }
-    virtual constexpr nullptr_t GetNull() const { throw NotNullException { }; }
+    virtual constexpr bool IsNull() const { return false; }
+    virtual constexpr bool IsError() const { return false; }
     virtual constexpr int &GetInt() { throw NotIntegerException { }; }
     virtual constexpr int GetInt() const { throw NotIntegerException { }; }
     virtual constexpr double &GetFloat() { throw NotFloatException { }; }
@@ -353,6 +357,7 @@ public:
     virtual constexpr const std::string_view GetStringView() const { throw NotStringException { }; }
     virtual constexpr std::string &GetString() { throw NotStringException { }; }
     virtual constexpr const std::string &GetString() const { throw NotStringException { }; }
+    virtual constexpr const std::string GetStringCopy() const { throw NotStringException { }; }
     virtual constexpr void push_back(const bool) { throw NotArraryOrMapException { }; }
     virtual constexpr void push_back(const int) { throw NotArraryOrMapException { }; }
     virtual constexpr void push_back(const double) { throw NotArraryOrMapException { }; }
@@ -375,6 +380,12 @@ public:
     virtual constexpr map<std::string, bool> GetBoolMap(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr map<std::string, float> GetFloatMap(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr map<std::string, std::string> GetStringMap(bool) { throw NotArraryOrMapException { }; }
+
+    constexpr Value &operator[](size_t index) const { return *atptr(index); }
+    constexpr Value &operator[](const std::string &key) const { return *atptr(key); }
+
+    constexpr auto &at(size_t index) const { return *atptr(index); }
+    constexpr auto &at(const std::string &key) const { return *atptr(key); }
 
     static constexpr Value *Parse(const char *&text, size_t &size) {
         try {
@@ -462,6 +473,60 @@ protected:
     }
 };
 
+class Null : public Value {
+public:
+    constexpr Null() { }
+
+    constexpr bool operator==(const Value& other) const override {
+        return other.GetType() == type::Null;
+    }
+    bool operator==(const Null&) const { return true; };
+    bool operator==(const Null&) { return true; };
+
+    constexpr void write(std::string &text, write_format_data &data) const override {
+        if (data.format.all_data_on_newline && !data.newline_added) {
+            text += '\n';
+            text += data.prefix;
+        }
+        text += "null";
+        data.newline_added = false;
+    }
+
+    constexpr type GetType() const noexcept override { return type::Null; }
+    constexpr bool IsNull() const override { return true; }
+    constexpr bool GetBool() const override { return false; }
+    constexpr int GetInt() const override { return 0; }
+    constexpr double GetFloat() const override { return 0.0; }
+    constexpr const std::string GetStringCopy() const override {
+        return { "null" };
+    }
+};
+
+class Error : public Value {
+    constexpr Error() { }
+public:
+    constexpr Error(const Error &) { }
+    static Error error;
+
+    constexpr type GetType() const noexcept override { return type::Error; }
+    constexpr bool IsError() const override { return true; }
+    constexpr bool operator==(const Value& other) const override {
+        return other.GetType() == type::Error;
+    }
+    bool operator==(const Error&) const { return true; };
+    bool operator==(const Error&) { return true; };
+
+    constexpr void write(std::string &text, write_format_data &data) const override {
+        if (data.format.all_data_on_newline && !data.newline_added) {
+            text += '\n';
+            text += data.prefix;
+        }
+        text += "error";
+        data.newline_added = false;
+    }
+};
+
+inline Error Error::error { };
 
 class Ref {
 protected:
@@ -478,6 +543,10 @@ public:
 
     constexpr inline type GetType() const { return obj->GetType(); }
 
+    constexpr inline Value *atptr(size_t index) const { return obj->atptr(index); }
+    constexpr inline Value *atptr(const std::string &key) const { return obj->atptr(key); }
+    constexpr inline Value &at(size_t index) const { return obj->at(index); }
+    constexpr inline Value &at(const std::string &key) const { return obj->at(key); }
     constexpr inline Value &operator[](size_t index) const { return obj->operator[](index); }
     constexpr inline Value &operator[](const std::string &key) const { return obj->operator[](key); }
     constexpr inline bool operator==(const Value& other) const { return obj->operator==(other); }
@@ -485,7 +554,7 @@ public:
 
     constexpr inline bool &GetBool() { return obj->GetBool(); }
     constexpr inline bool GetBool() const { return obj->GetBool(); }
-    constexpr inline nullptr_t GetNull() const { return obj->GetNull(); }
+    constexpr inline bool IsNull() const { return obj->IsNull(); }
     constexpr inline int &GetInt() { return obj->GetInt(); }
     constexpr inline int GetInt() const { return obj->GetInt(); }
     constexpr inline double &GetFloat() { return obj->GetFloat(); }
@@ -493,6 +562,7 @@ public:
     constexpr inline const std::string_view GetStringView() const { return obj->GetStringView(); }
     constexpr inline std::string &GetString() { return obj->GetString(); }
     constexpr inline const std::string &GetString() const { return obj->GetString(); }
+    constexpr inline const std::string GetStringCopy() const { return obj->GetStringCopy(); }
     constexpr inline void push_back(const bool value) { return obj->push_back(value); }
     constexpr inline void push_back(const int value) { return obj->push_back(value); }
     constexpr inline void push_back(const double value) { return obj->push_back(value); }
@@ -522,6 +592,16 @@ public:
         obj->write(result, dataformat);
         return result;
     }
+
+    /// @brief 
+    /// @param text 
+    /// @param delimiter 
+    /// @return 
+    constexpr Value &Query(const std::string &text, const auto &delimiter);
+
+    constexpr Value &Query(const std::string &text) {
+        return Query(text, '/');
+    }
 };
 
 class Bool : public Value {
@@ -529,6 +609,7 @@ protected:
     bool value;
 
 public:
+    constexpr Bool(const Bool &other) : value { other.value } { }
     constexpr Bool(bool value) : value { value } { }
 
     constexpr bool operator==(const Value& other) const override { 
@@ -554,12 +635,17 @@ public:
     constexpr bool GetBool() const override { return value; }
     constexpr int GetInt() const override { return static_cast<int>(value); }
     constexpr double GetFloat() const override { return static_cast<double>(value); }
+    constexpr const std::string GetStringCopy() const override {
+        if (value) return { "true" };
+        else return { "false" };
+    }
 };
 
 class Integer : public Value {
     int value;
     
 public:
+    constexpr Integer(const Integer &other) : value { other.value } { }
     constexpr Integer(const int value) : value { value } { }
 
     constexpr bool operator==(const Value& other) const override { 
@@ -584,12 +670,14 @@ public:
     constexpr int &GetInt() override { return value; }
     constexpr int GetInt() const override { return value; }
     constexpr double GetFloat() const override { return static_cast<double>(value); }
+    constexpr const std::string GetStringCopy() const override { return std::to_string(value); }
 };
 
 class Float : public Value {
     double value;
 
 public:
+    constexpr Float(const Float &other) : value { other.value } { }
     constexpr Float(const double value) : value { value } { }
 
     constexpr bool operator==(const Value& other) const override { 
@@ -614,15 +702,16 @@ public:
     constexpr int GetInt() const override { return static_cast<int>(value); }
     constexpr double GetFloat() const override { return value; }
     constexpr double &GetFloat() override { return value; }
-
+    constexpr const std::string GetStringCopy() const override { return std::to_string(value); }
 };
 
 class String : public Value {
     std::string value;
 
 public:
+    constexpr String(const String &other) : value { other.value } { }
     constexpr String(const std::string &value) : value { value } { }
-    constexpr String(const std::string &&value) : value { std::move(value) } { }
+    constexpr String(std::string &&value) : value { std::move(value) } { }
 
     constexpr bool operator==(const Value& other) const override { 
         auto rhs = dynamic_cast<const String *>(&other);
@@ -654,6 +743,7 @@ public:
     constexpr double GetFloat() const override { return std::stod(value); }
     constexpr std::string &GetString() override { return value; }
     constexpr const std::string &GetString() const override { return value; }
+    constexpr const std::string GetStringCopy() const override { return value; }
 
     constexpr type GetType() const noexcept override { return type::String; }
 
@@ -769,15 +859,14 @@ public:
         } else data.newline_added = false;
     }
 
-    constexpr Value &operator[](size_t index) const override { 
-        if (index >= values.size()) throw ArrayOutOfRangeException { };
-        return *values[index];
+    constexpr Value *atptr(size_t index) const override { 
+        if (index >= values.size()) return &Error::error;
+        return values[index].get();
     }
-
-    constexpr Value &operator[](const std::string &key) const override {
+    constexpr Value *atptr(const std::string &key) const override {
         auto index = std::stoul(key);
-        if (index >= values.size()) throw ArrayOutOfRangeException { };
-        return *values[index];
+        if (index >= values.size()) return &Error::error;;
+        return values[index].get();
     }
 
     constexpr void push_back(const bool value) override {
@@ -838,7 +927,7 @@ public:
             for(auto &value: values) {
                 try {
                     ret.push_back(value->GetBool());
-                } catch(NotIntegerException &) {}
+                } catch(NotBoolException &) {}
             }
         } else {
             for(auto &value: values) {
@@ -854,7 +943,7 @@ public:
             for(auto &value: values) {
                 try {
                     ret.push_back(value->GetFloat());
-                } catch(NotIntegerException &) {}
+                } catch(NotFloatException &) {}
             }
         } else {
             for(auto &value: values) {
@@ -869,12 +958,12 @@ public:
         if (exclude_non_string) {
             for(auto &value: values) {
                 try {
-                    ret.push_back(value->GetString());
-                } catch(NotIntegerException &) {}
+                    ret.push_back(std::move(value->GetStringCopy()));
+                } catch(NotStringException &) {}
             }
         } else {
             for(auto &value: values) {
-                ret.push_back(value->GetString());
+                ret.push_back(std::move(value->GetStringCopy()));
             }
         }
         return ret;
@@ -981,18 +1070,16 @@ public:
         } else data.newline_added = false;
     }
 
-    constexpr Value &operator[](const std::string &key) const override {
-        auto itr = values.find(key);
-        if (itr == std::end(values)) throw ObjecctOutOfRangeException { };
-        return *itr->second;
-    }
-
-
-    constexpr Value &operator[](size_t index) const override { 
+    Value *atptr(size_t index) const override { 
         auto key = std::to_string(index);
         auto itr = values.find(key);
-        if (itr == std::end(values)) throw ObjecctOutOfRangeException { };
-        return *itr->second;
+        if (itr == std::end(values)) return &Error::error;
+        return itr->second.get();
+    }
+    Value *atptr(const std::string &key) const override {
+        auto itr = values.find(key);
+        if (itr == std::end(values)) return &Error::error;
+        return itr->second.get();
     }
 
     constexpr type GetType() const noexcept override { return type::Object; }
@@ -1085,7 +1172,7 @@ public:
             for(auto &value: values) {
                 try {
                     ret.push_back(value.second->GetBool());
-                } catch(NotIntegerException &) {}
+                } catch(NotBoolException &) {}
             }
         } else {
             for(auto &value: values) {
@@ -1101,7 +1188,7 @@ public:
             for(auto &value: values) {
                 try {
                     ret.push_back(value.second->GetFloat());
-                } catch(NotIntegerException &) {}
+                } catch(NotFloatException &) {}
             }
         } else {
             for(auto &value: values) {
@@ -1116,12 +1203,12 @@ public:
         if (exclude_non_string) {
             for(auto &value: values) {
                 try {
-                    ret.push_back(value.second->GetString());
-                } catch(NotIntegerException &) {}
+                    ret.push_back(value.second->GetStringCopy());
+                } catch(NotStringException &) {}
             }
         } else {
             for(auto &value: values) {
-                ret.push_back(value.second->GetString());
+                ret.push_back(value.second->GetStringCopy());
             }
         }
         return ret;
@@ -1149,7 +1236,7 @@ public:
             for(auto &value: values) {
                 try {
                     ret.emplace(value.first, value.second->GetBool());
-                } catch(NotIntegerException &) {}
+                } catch(NotBoolException &) {}
             }
         } else {
             for(auto &value: values) {
@@ -1165,7 +1252,7 @@ public:
             for(auto &value: values) {
                 try {
                     ret.emplace(value.first, value.second->GetFloat());
-                } catch(NotIntegerException &) {}
+                } catch(NotFloatException &) {}
             }
         } else {
             for(auto &value: values) {
@@ -1181,7 +1268,7 @@ public:
             for(auto &value: values) {
                 try {
                     ret.emplace(value.first, value.second->GetString());
-                } catch(NotIntegerException &) {}
+                } catch(NotStringException &) {}
             }
         } else {
             for(auto &value: values) {
@@ -1296,9 +1383,67 @@ constexpr Value *Value::ParseInternal(const char *&text, size_t &size) {
             Value::SkipWS(text, size);
             return new Bool { true };
         }
+    case 'n':    
+    case 'N': {
+            if (size < 4) throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD_OR_PREMATURE_TERMINATION };
+            ++text;
+            if (*text != 'u' && *text != 'U') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
+            ++text;
+            if (*text != 'l' && *text != 'L') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
+            ++text;
+            if (*text != 'l' && *text != 'L') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
+            ++text;
+            size -= 4;
+            Value::SkipWS(text, size);
+            return new Null { };
+        }
     default:
         throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
     }
+}
+
+template <typename DT>
+constexpr inline size_t GetLength(const DT &val) {
+    return sizeof(val);
+}
+
+template <>
+constexpr inline size_t GetLength<std::string>(const std::string &val) {
+    return val.size();
+}
+
+template <>
+constexpr inline size_t GetLength<std::string_view>(const std::string_view &val) {
+    return val.size();
+}
+
+
+constexpr Value &Ref::Query(const std::string &text, const auto &delimiter) {
+    if (text.empty()) return *obj;
+    size_t first = 0;
+    size_t last = text.find(delimiter);
+    Value *curr = obj.get();
+    if (curr == nullptr) return Error::error;
+    while(last != std::string::npos) {
+        if (first != last) {
+            if (curr->GetType() != type::Array && curr->GetType() != type::Object) return Error::error;
+            auto key = text.substr(first, last - first);
+            curr = curr->atptr(key);
+            if (curr == nullptr) return Error::error;
+        }
+        first = last + GetLength(delimiter);
+        last = text.find(delimiter, first);
+    }
+
+    if (first != text.size()) {
+        if (curr->GetType() != type::Array && curr->GetType() != type::Object) return Error::error;
+        auto key = text.substr(first);
+        curr = curr->atptr(key);
+    }
+
+    if (curr == nullptr) return Error::error;
+    
+    return *curr;
 }
 
 constexpr Ref::Ref() : obj { new Object { } } { }
