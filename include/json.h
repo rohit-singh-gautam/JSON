@@ -348,6 +348,34 @@ public:
     Iterator_const &operator++() { itr->Increment(); return *this;}
 };
 
+class Reverse_Iterator {
+    Iterator_Internal *itr;
+public:
+    Reverse_Iterator(Iterator_Internal *itr) : itr { itr } { }
+    Reverse_Iterator(const Reverse_Iterator &) = delete;
+    ~Reverse_Iterator() { delete itr; }
+    Reverse_Iterator &operator=(const Reverse_Iterator &) = delete;
+    bool operator==(const Reverse_Iterator &other) { return itr->Equal(other.itr); }
+    bool operator!=(const Reverse_Iterator &other) { return itr->NotEqual(other.itr); }
+    Value &operator*() { return itr->operator*(); }
+    Value *operator->() { return itr->operator->(); }
+    Reverse_Iterator &operator++() { itr->Increment(); return *this;}
+};
+
+class Reverse_Iterator_const {
+    Iterator_Internal *itr;
+public:
+    Reverse_Iterator_const(Iterator_Internal *itr) : itr { itr } { }
+    Reverse_Iterator_const(const Reverse_Iterator_const &) = delete;
+    ~Reverse_Iterator_const() { delete itr; }
+    Reverse_Iterator_const &operator=(const Reverse_Iterator_const &) = delete;
+    bool operator==(const Reverse_Iterator_const &other) { return itr->Equal(other.itr); }
+    bool operator!=(const Reverse_Iterator_const &other) { return itr->NotEqual(other.itr); }
+    const Value &operator*() { return itr->operator*(); }
+    const Value *operator->() { return itr->operator->(); }
+    Reverse_Iterator_const &operator++() { itr->Increment(); return *this;}
+};
+
 class Value {
 public:
     virtual ~Value() = default;
@@ -413,6 +441,8 @@ public:
     virtual constexpr vector<bool> GetBoolVector(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr vector<float> GetFloatVector(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr vector<std::string> GetStringVector(bool) { throw NotArraryOrMapException { }; }
+    virtual constexpr vector<std::unique_ptr<Value>> &GetInternalVector() { throw NotArraryOrMapException { }; }
+    virtual constexpr const vector<std::unique_ptr<Value>> &GetInternalVector() const { throw NotArraryOrMapException { }; }
     virtual constexpr void insert(std::string, const bool) { throw NotArraryOrMapException { }; }
     virtual constexpr void insert(std::string, const int)  { throw NotArraryOrMapException { }; }
     virtual constexpr void insert(std::string, const double)  { throw NotArraryOrMapException { }; }
@@ -424,11 +454,18 @@ public:
     virtual constexpr map<std::string, bool> GetBoolMap(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr map<std::string, float> GetFloatMap(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr map<std::string, std::string> GetStringMap(bool) { throw NotArraryOrMapException { }; }
+    virtual constexpr map<std::string, std::unique_ptr<Value>> &GetInternalMap() { throw NotArraryOrMapException { }; }
+    virtual constexpr const map<std::string, std::unique_ptr<Value>> &GetInternalMap() const { throw NotArraryOrMapException { }; }
 
     virtual Iterator begin() { throw NotArraryOrMapException { }; }
     virtual Iterator end() { throw NotArraryOrMapException { }; }
     virtual Iterator_const begin() const { throw NotArraryOrMapException { }; }
     virtual Iterator_const end() const { throw NotArraryOrMapException { }; }
+
+    virtual Reverse_Iterator rbegin() { throw NotArraryOrMapException { }; }
+    virtual Reverse_Iterator rend() { throw NotArraryOrMapException { }; }
+    virtual Reverse_Iterator_const rbegin() const { throw NotArraryOrMapException { }; }
+    virtual Reverse_Iterator_const rend() const { throw NotArraryOrMapException { }; }
 
     constexpr Value &operator[](size_t index) const { return *atptr(index); }
     constexpr Value &operator[](const std::string &key) const { return *atptr(key); }
@@ -643,9 +680,14 @@ public:
 
     constexpr inline Iterator begin() { return obj->begin(); }
     constexpr inline Iterator end() { return obj->end(); }
-
     constexpr inline Iterator_const begin() const { return static_cast<const Value *>(obj.get())->begin(); }
     constexpr inline Iterator_const end() const { return static_cast<const Value *>(obj.get())->end(); }
+
+    constexpr inline Reverse_Iterator rbegin() { return obj->rbegin(); }
+    constexpr inline Reverse_Iterator rend() { return obj->rend(); }
+    constexpr inline Reverse_Iterator_const rbegin() const { return static_cast<const Value *>(obj.get())->rbegin(); }
+    constexpr inline Reverse_Iterator_const rend() const { return static_cast<const Value *>(obj.get())->rend(); }
+
 
 
     constexpr std::string write(const write_format &format) {
@@ -886,6 +928,32 @@ public:
     void Increment() override { ++itr; }
 };
 
+
+class ArrayReverseIterator : public Iterator_Internal {
+    vector<std::unique_ptr<Value>>::reverse_iterator itr;
+
+public:
+    ArrayReverseIterator(vector<std::unique_ptr<Value>>::reverse_iterator &&itr) : itr { std::move(itr) } { }
+    bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ArrayReverseIterator *>(other)->itr; }
+    bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ArrayReverseIterator *>(other)->itr; }
+    Value &operator*() override { return **itr; }
+    Value *operator->() override { return (*itr).get(); }
+    void Increment() override { ++itr; }
+};
+
+class ArrayConstReverseIterator : public Iterator_Internal {
+    vector<std::unique_ptr<Value>>::const_reverse_iterator itr;
+
+public:
+    ArrayConstReverseIterator(vector<std::unique_ptr<Value>>::const_reverse_iterator &&itr) : itr { std::move(itr) } { }
+    bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ArrayConstReverseIterator *>(other)->itr; }
+    bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ArrayConstReverseIterator *>(other)->itr; }
+    Value &operator*() override { return **itr; }
+    Value *operator->() override { return (*itr).get(); }
+    void Increment() override { ++itr; }
+};
+
+
 class Array : public Value {
     vector<std::unique_ptr<Value>> values { };
 
@@ -903,9 +971,14 @@ public:
 
     Iterator begin() override { return Iterator { new ArrayIterator { values.begin() } }; }
     Iterator end() override { return Iterator { new ArrayIterator { values.end() } }; }
-
     Iterator_const begin() const override { return Iterator_const { new ArrayConstIterator { values.begin() } }; }
     Iterator_const end() const override { return Iterator_const { new ArrayConstIterator { values.end() } }; }
+
+    Reverse_Iterator rbegin() override { return Reverse_Iterator { new ArrayReverseIterator { values.rbegin() } }; }
+    Reverse_Iterator rend() override { return Reverse_Iterator { new ArrayReverseIterator { values.rend() } }; }
+    Reverse_Iterator_const rbegin() const override { return Reverse_Iterator_const { new ArrayConstReverseIterator { values.rbegin() } }; }
+    Reverse_Iterator_const rend() const override { return Reverse_Iterator_const { new ArrayConstReverseIterator { values.rend() } }; }
+    
 
     constexpr void write(std::string &text, write_format_data &data) const override {
         if (data.format.newline_before_bracket_open && !data.newline_added) {
@@ -1060,6 +1133,9 @@ public:
         return ret;
     }
 
+    constexpr vector<std::unique_ptr<Value>> &GetInternalVector() override { return values; }
+    constexpr const vector<std::unique_ptr<Value>> &GetInternalVector() const override { return values; }
+
     constexpr type GetType() const noexcept override { return type::Array; }
 
 
@@ -1109,6 +1185,30 @@ public:
     void Increment() override { ++itr; }
 };
 
+class ObjectReverseIterator : public Iterator_Internal {
+    map<std::string, std::unique_ptr<Value>>::reverse_iterator itr;
+
+public:
+    ObjectReverseIterator(map<std::string, std::unique_ptr<Value>>::reverse_iterator &&itr) : itr { std::move(itr) } { }
+    bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ObjectReverseIterator *>(other)->itr; }
+    bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ObjectReverseIterator *>(other)->itr; }
+    Value &operator*() override { return *itr->second; }
+    Value *operator->() override { return itr->second.get(); }
+    void Increment() override { ++itr; }
+};
+
+class ObjectConstReverseIterator : public Iterator_Internal {
+    map<std::string, std::unique_ptr<Value>>::const_reverse_iterator itr;
+
+public:
+    ObjectConstReverseIterator(map<std::string, std::unique_ptr<Value>>::const_reverse_iterator &&itr) : itr { std::move(itr) } { }
+    bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ObjectConstReverseIterator *>(other)->itr; }
+    bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ObjectConstReverseIterator *>(other)->itr; }
+    Value &operator*() override { return *itr->second; }
+    Value *operator->() override { return itr->second.get(); }
+    void Increment() override { ++itr; }
+};
+
 
 class Object : public Value {
     // unordered_map fails with -fanalyzer
@@ -1132,6 +1232,11 @@ public:
     Iterator end() override { return Iterator { new ObjectIterator { values.end() } }; }
     Iterator_const begin() const override { return Iterator_const { new ObjectConstIterator { values.begin() } }; }
     Iterator_const end() const override { return Iterator_const { new ObjectConstIterator { values.end() } }; }
+
+    Reverse_Iterator rbegin() override { return Reverse_Iterator { new ObjectReverseIterator { values.rbegin() } }; }
+    Reverse_Iterator rend() override { return Reverse_Iterator { new ObjectReverseIterator { values.rend() } }; }
+    Reverse_Iterator_const rbegin() const override { return Reverse_Iterator_const { new ObjectConstReverseIterator { values.rbegin() } }; }
+    Reverse_Iterator_const rend() const override { return Reverse_Iterator_const { new ObjectConstReverseIterator { values.rend() } }; }
 
     constexpr void write(std::string &text, write_format_data &data) const override {
         if (data.format.newline_before_bracket_open && !data.newline_added) {
@@ -1397,6 +1502,9 @@ public:
         }
         return ret;
     }
+
+    constexpr map<std::string, std::unique_ptr<Value>> &GetInternalMap() override { return values; }
+    constexpr const map<std::string, std::unique_ptr<Value>> &GetInternalMap() const override { return values; }
 }; // class Object
 
 constexpr Value *Value::ParseIntegerOrFloat(const char *&text, size_t &size) {

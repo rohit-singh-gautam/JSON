@@ -34,7 +34,9 @@ const std::vector<std::string> samplejsonlist {
     "    }\n"
     "}\n",
     "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]",
-    "[0, 1, 2, [\"Test1\", \"Test2\", \"Test3\"], 4, 5, 6]"
+    "[0, 1, 2, [\"Test1\", \"Test2\", \"Test3\"], 4, 5, 6]",
+    "{\"zero\": 0, \"one\": 1, \"two\": 2, \"three\": 3, \"four\": 4, \"five\": 5, \"six\": 6, \"seven\": 7, \"eight\": 8, \"nine\": 9}",
+    "{\"0\": 0, \"1\": 1, \"2\": 2, \"3\": 3, \"4\": 4, \"5\": 5, \"6\": 6, \"7\": 7, \"8\": 8, \"9\": 9}",
 };
 
 std::string GetFromFile(const std::filesystem::path &path) {
@@ -152,7 +154,7 @@ TEST(JSONTest, StringTest) {
 
 
 
-TEST(JSONTest, JsonArray) {
+TEST(JSONTest, ArrayTest) {
     const std::string &value = samplejsonlist[1];
     auto json = rohit::json::Parse(value);
     EXPECT_TRUE(json[0].GetInt() == 0);
@@ -169,7 +171,7 @@ TEST(JSONTest, JsonArray) {
     EXPECT_TRUE(newjson == expectedjson);
 }
 
-TEST(JSONTest, JsonObject) {
+TEST(JSONTest, ObjectTest) {
     const std::string &value = samplejsonlist[0];
     auto jsonref = rohit::json::Parse(value);
     EXPECT_TRUE(jsonref["Key1"]["key11"].GetString() == "Value1");
@@ -208,7 +210,7 @@ constexpr int ConstExprJSON() {
     return int_value;
 }
 
-TEST(JSONTest, JSONConstExpr) {
+TEST(JSONTest, ConstExpr) {
     int value = ConstExprJSON();
     EXPECT_TRUE(value == 2);
 }
@@ -228,12 +230,45 @@ TEST(JSONTest, ArrayIterator) {
     for(auto &val: json) {
         EXPECT_TRUE(val.IsInteger() && val.GetInt() == index++);
     }
+
+    for(auto begin { std::rbegin(json) }; begin != std::rend(json); ++begin) {
+        auto &val = *begin;
+        EXPECT_TRUE(val.IsInteger() && val.GetInt() == --index);
+    }
     
     // Const iterator
     const auto json1 = rohit::json::Parse(samplejsonlist[1]);
-    int index1 { 0 };
     for(auto &val: json1) {
-        EXPECT_TRUE(val.IsInteger() && val.GetInt() == index1++);
+        EXPECT_TRUE(val.IsInteger() && val.GetInt() == index++);
+    }
+
+    for(auto begin { std::rbegin(json1) }; begin != std::rend(json1); ++begin) {
+        auto &val = *begin;
+        EXPECT_TRUE(val.IsInteger() && val.GetInt() == --index);
+    }
+}
+
+TEST(JSONTest, ObjectIterator) {
+    auto json = rohit::json::Parse(samplejsonlist[4]);
+    int index { 0 };
+    for(auto &val: json) {
+        EXPECT_TRUE(val.IsInteger() && val.GetInt() == index++);
+    }
+
+    for(auto begin { std::rbegin(json) }; begin != std::rend(json); ++begin) {
+        auto &val = *begin;
+        EXPECT_TRUE(val.IsInteger() && val.GetInt() == --index);
+    }
+    
+    // Const iterator
+    const auto json1 = rohit::json::Parse(samplejsonlist[1]);
+    for(auto &val: json1) {
+        EXPECT_TRUE(val.IsInteger() && val.GetInt() == index++);
+    }
+
+    for(auto begin { std::rbegin(json1) }; begin != std::rend(json1); ++begin) {
+        auto &val = *begin;
+        EXPECT_TRUE(val.IsInteger() && val.GetInt() == --index);
     }
 }
 
