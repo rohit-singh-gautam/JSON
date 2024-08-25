@@ -666,6 +666,8 @@ public:
     constexpr inline vector<bool> GetBoolVector(bool ignore_exceptions) { return obj->GetBoolVector(ignore_exceptions); }
     constexpr inline vector<float> GetFloatVector(bool ignore_exceptions) { return obj->GetFloatVector(ignore_exceptions); }
     constexpr inline vector<std::string> GetStringVector(bool ignore_exceptions) { return obj->GetStringVector(ignore_exceptions); }
+    constexpr inline vector<std::unique_ptr<Value>> &GetInternalVector() { return obj->GetInternalVector(); }
+    constexpr inline const vector<std::unique_ptr<Value>> &GetInternalVector() const { return obj->GetInternalVector(); }
     constexpr inline void insert(std::string key, const bool value) { return obj->insert(key, value); }
     constexpr inline void insert(std::string key, const int value) { return obj->insert(key, value); }
     constexpr inline void insert(std::string key, const double value) { return obj->insert(key, value); }
@@ -677,6 +679,8 @@ public:
     constexpr inline map<std::string, bool> GetBoolMap(bool ignore_exceptions) { return obj->GetBoolMap(ignore_exceptions); }
     constexpr inline map<std::string, float> GetFloatMap(bool ignore_exceptions) { return obj->GetFloatMap(ignore_exceptions); }
     constexpr inline map<std::string, std::string> GetStringMap(bool ignore_exceptions) { return obj->GetStringMap(ignore_exceptions); }
+    constexpr inline map<std::string, std::unique_ptr<Value>> &GetInternalMap() { return obj->GetInternalMap(); }
+    constexpr inline const map<std::string, std::unique_ptr<Value>> &GetInternalMap() const { return obj->GetInternalMap(); }
 
     constexpr inline Iterator begin() { return obj->begin(); }
     constexpr inline Iterator end() { return obj->end(); }
