@@ -210,9 +210,9 @@ public:
     ArrayOutOfRangeException() : Exception { exception_t::ARRAY_OUT_OF_RANGE } { }
 };
 
-class ObjecctOutOfRangeException : public Exception {
+class ObjectOutOfRangeException : public Exception {
 public:
-    ObjecctOutOfRangeException() : Exception { exception_t::OBJECT_OUT_OF_RANGE } { }
+    ObjectOutOfRangeException() : Exception { exception_t::OBJECT_OUT_OF_RANGE } { }
 };
 
 class Value;
@@ -310,6 +310,44 @@ enum class type {
     Error
 };
 
+class Iterator_Internal {
+public:
+    virtual ~Iterator_Internal() = default;
+    virtual bool Equal(const Iterator_Internal *other) = 0;
+    virtual bool NotEqual(const Iterator_Internal *other) = 0;
+    virtual Value &operator*() = 0;
+    virtual Value *operator->() = 0;
+    virtual void Increment() = 0;
+};
+
+class Iterator {
+    Iterator_Internal *itr;
+public:
+    Iterator(Iterator_Internal *itr) : itr { itr } { }
+    Iterator(const Iterator &) = delete;
+    ~Iterator() { delete itr; }
+    Iterator &operator=(const Iterator &) = delete;
+    bool operator==(const Iterator &other) { return itr->Equal(other.itr); }
+    bool operator!=(const Iterator &other) { return itr->NotEqual(other.itr); }
+    Value &operator*() { return itr->operator*(); }
+    Value *operator->() { return itr->operator->(); }
+    Iterator &operator++() { itr->Increment(); return *this;}
+};
+
+class Iterator_const {
+    Iterator_Internal *itr;
+public:
+    Iterator_const(Iterator_Internal *itr) : itr { itr } { }
+    Iterator_const(const Iterator_const &) = delete;
+    ~Iterator_const() { delete itr; }
+    Iterator_const &operator=(const Iterator_const &) = delete;
+    bool operator==(const Iterator_const &other) { return itr->Equal(other.itr); }
+    bool operator!=(const Iterator_const &other) { return itr->NotEqual(other.itr); }
+    const Value &operator*() { return itr->operator*(); }
+    const Value *operator->() { return itr->operator->(); }
+    Iterator_const &operator++() { itr->Increment(); return *this;}
+};
+
 class Value {
 public:
     virtual ~Value() = default;
@@ -342,14 +380,20 @@ public:
     virtual constexpr void write(std::string &, write_format_data &) const = 0;
 
     virtual constexpr type GetType() const noexcept = 0;
+    constexpr bool IsNull() const { return GetType() == type::Null; }
+    constexpr bool IsError() const { return GetType() == type::Error; }
+    constexpr bool IsBool() const { return GetType() == type::Bool; }
+    constexpr bool IsInteger() const { return GetType() == type::NumberInt; }
+    constexpr bool IsFloat() const { return GetType() == type::NumberFloat; }
+    constexpr bool IsArray() const { return GetType() == type::Array; }
+    constexpr bool IsObject() const { return GetType() == type::Object; }
+
     virtual constexpr Value *atptr(size_t) const { throw NotArraryOrMapException { }; }
     virtual constexpr Value *atptr(const std::string &) const { throw NotArraryOrMapException { }; }
     virtual constexpr bool operator==(const Value& other) const = 0;
 
     virtual constexpr bool &GetBool() { throw NotBoolException { }; }
     virtual constexpr bool GetBool() const { throw NotBoolException { }; }
-    virtual constexpr bool IsNull() const { return false; }
-    virtual constexpr bool IsError() const { return false; }
     virtual constexpr int &GetInt() { throw NotIntegerException { }; }
     virtual constexpr int GetInt() const { throw NotIntegerException { }; }
     virtual constexpr double &GetFloat() { throw NotFloatException { }; }
@@ -380,6 +424,11 @@ public:
     virtual constexpr map<std::string, bool> GetBoolMap(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr map<std::string, float> GetFloatMap(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr map<std::string, std::string> GetStringMap(bool) { throw NotArraryOrMapException { }; }
+
+    virtual Iterator begin() { throw NotArraryOrMapException { }; }
+    virtual Iterator end() { throw NotArraryOrMapException { }; }
+    virtual Iterator_const begin() const { throw NotArraryOrMapException { }; }
+    virtual Iterator_const end() const { throw NotArraryOrMapException { }; }
 
     constexpr Value &operator[](size_t index) const { return *atptr(index); }
     constexpr Value &operator[](const std::string &key) const { return *atptr(key); }
@@ -471,6 +520,7 @@ protected:
         ++text; --size;
         return value;
     }
+
 };
 
 class Null : public Value {
@@ -493,7 +543,7 @@ public:
     }
 
     constexpr type GetType() const noexcept override { return type::Null; }
-    constexpr bool IsNull() const override { return true; }
+
     constexpr bool GetBool() const override { return false; }
     constexpr int GetInt() const override { return 0; }
     constexpr double GetFloat() const override { return 0.0; }
@@ -509,7 +559,7 @@ public:
     static Error error;
 
     constexpr type GetType() const noexcept override { return type::Error; }
-    constexpr bool IsError() const override { return true; }
+
     constexpr bool operator==(const Value& other) const override {
         return other.GetType() == type::Error;
     }
@@ -542,6 +592,12 @@ public:
     Ref &operator=(const Ref &) = delete;
 
     constexpr inline type GetType() const { return obj->GetType(); }
+    constexpr inline bool IsNull() const { return obj->IsNull(); }
+    constexpr inline bool IsBool() const { return obj->IsBool(); }
+    constexpr inline bool IsInteger() const { return obj->IsInteger(); }
+    constexpr inline bool IsFloat() const { return obj->IsFloat(); }
+    constexpr inline bool IsArray() const { return obj->IsArray(); }
+    constexpr inline bool IsObject() const { return obj->IsObject(); }
 
     constexpr inline Value *atptr(size_t index) const { return obj->atptr(index); }
     constexpr inline Value *atptr(const std::string &key) const { return obj->atptr(key); }
@@ -554,7 +610,6 @@ public:
 
     constexpr inline bool &GetBool() { return obj->GetBool(); }
     constexpr inline bool GetBool() const { return obj->GetBool(); }
-    constexpr inline bool IsNull() const { return obj->IsNull(); }
     constexpr inline int &GetInt() { return obj->GetInt(); }
     constexpr inline int GetInt() const { return obj->GetInt(); }
     constexpr inline double &GetFloat() { return obj->GetFloat(); }
@@ -585,6 +640,13 @@ public:
     constexpr inline map<std::string, bool> GetBoolMap(bool ignore_exceptions) { return obj->GetBoolMap(ignore_exceptions); }
     constexpr inline map<std::string, float> GetFloatMap(bool ignore_exceptions) { return obj->GetFloatMap(ignore_exceptions); }
     constexpr inline map<std::string, std::string> GetStringMap(bool ignore_exceptions) { return obj->GetStringMap(ignore_exceptions); }
+
+    constexpr inline Iterator begin() { return obj->begin(); }
+    constexpr inline Iterator end() { return obj->end(); }
+
+    constexpr inline Iterator_const begin() const { return static_cast<const Value *>(obj.get())->begin(); }
+    constexpr inline Iterator_const end() const { return static_cast<const Value *>(obj.get())->end(); }
+
 
     constexpr std::string write(const write_format &format) {
         std::string result { };
@@ -800,6 +862,29 @@ public:
     }
 };
 
+class ArrayIterator : public Iterator_Internal {
+    vector<std::unique_ptr<Value>>::iterator itr;
+
+public:
+    ArrayIterator(vector<std::unique_ptr<Value>>::iterator &&itr) : itr { std::move(itr) } { }
+    bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ArrayIterator *>(other)->itr; }
+    bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ArrayIterator *>(other)->itr; }
+    Value &operator*() override { return **itr; }
+    Value *operator->() override { return (*itr).get(); }
+    void Increment() override { ++itr; }
+};
+
+class ArrayConstIterator : public Iterator_Internal {
+    vector<std::unique_ptr<Value>>::const_iterator itr;
+
+public:
+    ArrayConstIterator(vector<std::unique_ptr<Value>>::const_iterator &&itr) : itr { std::move(itr) } { }
+    bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ArrayConstIterator *>(other)->itr; }
+    bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ArrayConstIterator *>(other)->itr; }
+    Value &operator*() override { return **itr; }
+    Value *operator->() override { return (*itr).get(); }
+    void Increment() override { ++itr; }
+};
 
 class Array : public Value {
     vector<std::unique_ptr<Value>> values { };
@@ -815,6 +900,12 @@ public:
     }
     bool operator==(const Array& other) const = delete;
     bool operator==(const Array& other) = delete;
+
+    Iterator begin() override { return Iterator { new ArrayIterator { values.begin() } }; }
+    Iterator end() override { return Iterator { new ArrayIterator { values.end() } }; }
+
+    Iterator_const begin() const override { return Iterator_const { new ArrayConstIterator { values.begin() } }; }
+    Iterator_const end() const override { return Iterator_const { new ArrayConstIterator { values.end() } }; }
 
     constexpr void write(std::string &text, write_format_data &data) const override {
         if (data.format.newline_before_bracket_open && !data.newline_added) {
@@ -994,6 +1085,31 @@ public:
     }
 };
 
+class ObjectIterator : public Iterator_Internal {
+    map<std::string, std::unique_ptr<Value>>::iterator itr;
+
+public:
+    ObjectIterator(map<std::string, std::unique_ptr<Value>>::iterator &&itr) : itr { std::move(itr) } { }
+    bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ObjectIterator *>(other)->itr; }
+    bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ObjectIterator *>(other)->itr; }
+    Value &operator*() override { return *itr->second; }
+    Value *operator->() override { return itr->second.get(); }
+    void Increment() override { ++itr; }
+};
+
+class ObjectConstIterator : public Iterator_Internal {
+    map<std::string, std::unique_ptr<Value>>::const_iterator itr;
+
+public:
+    ObjectConstIterator(map<std::string, std::unique_ptr<Value>>::const_iterator &&itr) : itr { std::move(itr) } { }
+    bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ObjectConstIterator *>(other)->itr; }
+    bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ObjectConstIterator *>(other)->itr; }
+    Value &operator*() override { return *itr->second; }
+    Value *operator->() override { return itr->second.get(); }
+    void Increment() override { ++itr; }
+};
+
+
 class Object : public Value {
     // unordered_map fails with -fanalyzer
     map<std::string, std::unique_ptr<Value>> values { };
@@ -1012,6 +1128,10 @@ public:
     bool operator==(const Object& other) const = delete;
     bool operator==(const Object& other) = delete;
     
+    Iterator begin() override { return Iterator { new ObjectIterator { values.begin() } }; }
+    Iterator end() override { return Iterator { new ObjectIterator { values.end() } }; }
+    Iterator_const begin() const override { return Iterator_const { new ObjectConstIterator { values.begin() } }; }
+    Iterator_const end() const override { return Iterator_const { new ObjectConstIterator { values.end() } }; }
 
     constexpr void write(std::string &text, write_format_data &data) const override {
         if (data.format.newline_before_bracket_open && !data.newline_added) {

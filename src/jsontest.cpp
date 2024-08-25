@@ -220,7 +220,21 @@ TEST(JSONTest, JSONQuery) {
 
     auto &jsonvalue1 = json.Query(std::string {"/Key1/Key12"});
     EXPECT_TRUE(jsonvalue1.IsError());
+}
 
+TEST(JSONTest, ArrayIterator) {
+    auto json = rohit::json::Parse(samplejsonlist[1]);
+    int index { 0 };
+    for(auto &val: json) {
+        EXPECT_TRUE(val.IsInteger() && val.GetInt() == index++);
+    }
+    
+    // Const iterator
+    const auto json1 = rohit::json::Parse(samplejsonlist[1]);
+    int index1 { 0 };
+    for(auto &val: json1) {
+        EXPECT_TRUE(val.IsInteger() && val.GetInt() == index1++);
+    }
 }
 
 int main(int argc, char *argv[]) {
