@@ -739,15 +739,22 @@ public:
         return result;
     }
 
-    /// @brief 
-    /// @param text 
-    /// @param delimiter 
-    /// @return 
-    constexpr Value &Query(const std::string &text, const auto &delimiter);
+private:
+    constexpr Value &QueryInternal(const std::string &text, const auto &delimiter) const;
 
-    constexpr Value &Query(const std::string &text) {
-        return Query(text, '/');
-    }
+public:
+    constexpr inline Value &Query(const std::string &text, const auto &delimiter) { return QueryInternal(text, delimiter); }
+    constexpr inline const Value &Query(const std::string &text, const auto &delimiter) const { return QueryInternal(text, delimiter); }
+    constexpr inline Value &Query(const std::string &text) { return QueryInternal(text, '/'); }
+    constexpr inline const Value &Query(const std::string &text) const { return QueryInternal(text, '/'); }
+    template <typename ChT, const size_t size>
+    constexpr Value &Query(const ChT (&text)[size + 1], const auto &delimiter) { return Query(std::string {text, size}, delimiter); }
+    template <typename ChT, const size_t size>
+    constexpr const Value &Query(const ChT (&text)[size + 1], const auto &delimiter) const { return Query(std::string {text, size}, delimiter); }
+    template <typename ChT, const size_t size>
+    constexpr Value &Query(const ChT (&text)[size + 1]) { return Query(std::string {text, size}, '/'); }
+    template <typename ChT, const size_t size>
+    constexpr const Value &Query(const ChT (&text)[size + 1]) const { return Query(std::string {text, size}, '/'); }
 };
 
 class Bool : public Value {
@@ -1387,7 +1394,8 @@ public:
     constexpr Value *atptr(const std::string &key) const override {
         auto pair_key = std::make_unique<Member>(key);
         auto itr = values.find(pair_key);
-        if (itr == std::end(values)) return &Error::error;
+        auto end = std::end(values);
+        if (itr == end) return &Error::error;
         return (*itr)->value.get();
     }
 
@@ -1745,7 +1753,7 @@ constexpr inline size_t GetLength<std::string_view>(const std::string_view &val)
 }
 
 
-constexpr Value &Ref::Query(const std::string &text, const auto &delimiter) {
+constexpr Value &Ref::QueryInternal(const std::string &text, const auto &delimiter) const {
     if (text.empty()) return *obj;
     size_t first = 0;
     size_t last = text.find(delimiter);

@@ -37,6 +37,16 @@ const std::vector<std::string> samplejsonlist {
     "[0, 1, 2, [\"Test1\", \"Test2\", \"Test3\"], 4, 5, 6]",
     "{\"zero\": 0, \"one\": 1, \"two\": 2, \"three\": 3, \"four\": 4, \"five\": 5, \"six\": 6, \"seven\": 7, \"eight\": 8, \"nine\": 9}",
     "{\"0\": 0, \"1\": 1, \"2\": 2, \"3\": 3, \"4\": 4, \"5\": 5, \"6\": 6, \"7\": 7, \"8\": 8, \"9\": 9}",
+    "{\n"
+    "    \"Key1\" : {\n"
+    "        \"key16\" : [ ],\n"
+    "        \"key15\" : { },\n"
+    "        \"key11\" : \"Value1\",\n"
+    "        \"key12\" : 32,\n"
+    "        \"key13\" : [0, 1, 2, 3, 4, 5, 6],\n"
+    "        \"key14\" :true,\n"
+    "    }\n"
+    "}\n",
 };
 
 std::string GetFromFile(const std::filesystem::path &path) {
@@ -216,12 +226,27 @@ TEST(JSONTest, ConstExpr) {
 }
 
 TEST(JSONTest, JSONQuery) {
-    auto json = rohit::json::Parse(samplejsonlist[0]);
+    auto json = rohit::json::Parse(samplejsonlist[5]);
     auto &jsonvalue = json.Query(std::string {"/Key1/key12"});
-    EXPECT_TRUE(jsonvalue.GetType() == rohit::json::type::NumberInt && jsonvalue.GetInt() == 32);
+    EXPECT_TRUE(jsonvalue.IsInteger() && jsonvalue.GetInt() == 32);
 
-    auto &jsonvalue1 = json.Query(std::string {"/Key1/Key12"});
+    auto &jsonvalue1 = json.Query(std::string {"/Key1/errr"});
     EXPECT_TRUE(jsonvalue1.IsError());
+
+    auto &jsonvalue2 = json.Query(std::string {"/Key1/key14"});
+    EXPECT_TRUE(jsonvalue2.IsBool() && jsonvalue2.GetBool());
+
+    auto &jsonvalue3 = json.Query(std::string {"/Key1/key11"});
+    EXPECT_TRUE(jsonvalue3.IsString() && jsonvalue3.GetString() == "Value1");
+
+    auto &jsonvalue4 = json.Query(std::string {"/Key1/key13"});
+    EXPECT_TRUE(jsonvalue4.IsArray());
+
+    auto &jsonvalue5 = json.Query(std::string {"/Key1/key15"});
+    EXPECT_TRUE(jsonvalue5.IsObject() && jsonvalue5.empty());
+
+    auto &jsonvalue6 = json.Query(std::string {"/Key1/key16"});
+    EXPECT_TRUE(jsonvalue6.IsArray() && jsonvalue6.empty());
 }
 
 TEST(JSONTest, ArrayIterator) {
@@ -272,6 +297,16 @@ TEST(JSONTest, ObjectIterator) {
         auto &val = itr->GetValue();
         EXPECT_TRUE(val.IsInteger() && val.GetInt() == --index);
     }
+}
+
+TEST(JSONTest, EmptyTest) {
+    auto json = rohit::json::Parse(samplejsonlist[5]);
+    //auto &arr = json[.Query("/Key1/key16")];
+    auto &arr = json["Key1"]["key16"];
+    EXPECT_TRUE(arr.IsArray() && arr.empty());
+
+    auto &obj = json.Query("/Key1/key15");
+    EXPECT_TRUE(obj.IsObject() && obj.empty());
 }
 
 int main(int argc, char *argv[]) {
