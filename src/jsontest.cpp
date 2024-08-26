@@ -251,23 +251,25 @@ TEST(JSONTest, ArrayIterator) {
 TEST(JSONTest, ObjectIterator) {
     auto json = rohit::json::Parse(samplejsonlist[4]);
     int index { 0 };
-    for(auto &val: json) {
+    for(auto &member: json) {
+        auto &val = member.GetValue();
         EXPECT_TRUE(val.IsInteger() && val.GetInt() == index++);
     }
 
-    for(auto begin { std::rbegin(json) }; begin != std::rend(json); ++begin) {
-        auto &val = *begin;
+    for(auto itr { std::rbegin(json) }; itr != std::rend(json); ++itr) {
+        auto &val = itr->GetValue();
         EXPECT_TRUE(val.IsInteger() && val.GetInt() == --index);
     }
     
     // Const iterator
-    const auto json1 = rohit::json::Parse(samplejsonlist[1]);
-    for(auto &val: json1) {
+    const auto json1 = rohit::json::Parse(samplejsonlist[4]);
+    for(auto &member: json1) {
+        auto &val = member.GetValue();
         EXPECT_TRUE(val.IsInteger() && val.GetInt() == index++);
     }
 
-    for(auto begin { std::rbegin(json1) }; begin != std::rend(json1); ++begin) {
-        auto &val = *begin;
+    for(auto itr { std::rbegin(json1) }; itr != std::rend(json1); ++itr) {
+        auto &val = itr->GetValue();
         EXPECT_TRUE(val.IsInteger() && val.GetInt() == --index);
     }
 }

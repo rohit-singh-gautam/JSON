@@ -23,6 +23,7 @@
 #include <vector>
 #include <memory>
 #include <stdexcept>
+#include <set>
 #include <map>
 #include <format>
 #include <charconv>
@@ -131,6 +132,9 @@ struct write_format_data {
     ERROR_T_ENTRY(NOT_INTEGER, "Not an integer") \
     ERROR_T_ENTRY(NOT_FLOAT, "Not a floating point number") \
     ERROR_T_ENTRY(NOT_STRING, "Not a string") \
+    ERROR_T_ENTRY(NOT_MEMBER, "Not an object member") \
+    ERROR_T_ENTRY(NOT_OBJECT, "Not an object") \
+    ERROR_T_ENTRY(NOT_ARRAY, "Not an array") \
     ERROR_T_ENTRY(ARRAY_OUT_OF_RANGE, "Array index out of rannge") \
     ERROR_T_ENTRY(OBJECT_OUT_OF_RANGE, "Object index out of rannge") \
     ERROR_T_ENTRY(PREMATURE_JSON_TERMINATION, "Premature JSON termination") \
@@ -178,6 +182,21 @@ public:
 class NotArraryOrMapException : public Exception {
 public:
     NotArraryOrMapException() : Exception { exception_t::NOT_ARRAY_OR_MAP } { }
+};
+
+class NotObjectException : public Exception {
+public:
+    NotObjectException() : Exception { exception_t::NOT_OBJECT } { }
+};
+
+class NotMemberException : public Exception {
+public:
+    NotMemberException() : Exception { exception_t::NOT_MEMBER } { }
+};
+
+class NotArrayException : public Exception {
+public:
+    NotArrayException() : Exception { exception_t::NOT_ARRAY } { }
 };
 
 class NotBoolException : public Exception {
@@ -302,11 +321,12 @@ public:
 enum class type {
     Bool, // True and False will be under bool, this will allow us to change it directly
     Null,
-    Object,
-    Array,
     NumberInt,
     NumberFloat,
     String,
+    Member,
+    Array,
+    Object,
     Error
 };
 
@@ -413,6 +433,7 @@ public:
     constexpr bool IsBool() const { return GetType() == type::Bool; }
     constexpr bool IsInteger() const { return GetType() == type::NumberInt; }
     constexpr bool IsFloat() const { return GetType() == type::NumberFloat; }
+    constexpr bool IsMember() const { return GetType() == type::Member; }
     constexpr bool IsArray() const { return GetType() == type::Array; }
     constexpr bool IsObject() const { return GetType() == type::Object; }
 
@@ -430,32 +451,36 @@ public:
     virtual constexpr std::string &GetString() { throw NotStringException { }; }
     virtual constexpr const std::string &GetString() const { throw NotStringException { }; }
     virtual constexpr const std::string GetStringCopy() const { throw NotStringException { }; }
-    virtual constexpr void push_back(const bool) { throw NotArraryOrMapException { }; }
-    virtual constexpr void push_back(const int) { throw NotArraryOrMapException { }; }
-    virtual constexpr void push_back(const double) { throw NotArraryOrMapException { }; }
-    virtual constexpr void push_back(const std::string &) { throw NotArraryOrMapException { }; }
-    virtual constexpr void push_back(std::string &&) { throw NotArraryOrMapException { }; }
-    virtual constexpr void push_back(Value *) { throw NotArraryOrMapException { }; }
-    virtual constexpr void push_back(std::unique_ptr<Value> &&) { throw NotArraryOrMapException { }; }
+    virtual constexpr void push_back(const bool) { throw NotArrayException { }; }
+    virtual constexpr void push_back(const int) { throw NotArrayException { }; }
+    virtual constexpr void push_back(const double) { throw NotArrayException { }; }
+    virtual constexpr void push_back(const std::string &) { throw NotArrayException { }; }
+    virtual constexpr void push_back(std::string &&) { throw NotArrayException { }; }
+    virtual constexpr void push_back(Value *) { throw NotArrayException { }; }
+    virtual constexpr void push_back(std::unique_ptr<Value> &&) { throw NotArrayException { }; }
     virtual constexpr vector<int> GetIntVector(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr vector<bool> GetBoolVector(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr vector<float> GetFloatVector(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr vector<std::string> GetStringVector(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr vector<std::unique_ptr<Value>> &GetInternalVector() { throw NotArraryOrMapException { }; }
     virtual constexpr const vector<std::unique_ptr<Value>> &GetInternalVector() const { throw NotArraryOrMapException { }; }
-    virtual constexpr void insert(std::string, const bool) { throw NotArraryOrMapException { }; }
-    virtual constexpr void insert(std::string, const int)  { throw NotArraryOrMapException { }; }
-    virtual constexpr void insert(std::string, const double)  { throw NotArraryOrMapException { }; }
-    virtual constexpr void insert(std::string, const std::string &)  { throw NotArraryOrMapException { }; }
-    virtual constexpr void insert(std::string, std::string &&)  { throw NotArraryOrMapException { }; }
-    virtual constexpr void insert(std::string, Value *)  { throw NotArraryOrMapException { }; }
-    virtual constexpr void insert(std::string, std::unique_ptr<Value> &&) { throw NotArraryOrMapException { }; }
-    virtual constexpr map<std::string, int> GetIntMap(bool) { throw NotArraryOrMapException { }; }
-    virtual constexpr map<std::string, bool> GetBoolMap(bool) { throw NotArraryOrMapException { }; }
-    virtual constexpr map<std::string, float> GetFloatMap(bool) { throw NotArraryOrMapException { }; }
-    virtual constexpr map<std::string, std::string> GetStringMap(bool) { throw NotArraryOrMapException { }; }
-    virtual constexpr map<std::string, std::unique_ptr<Value>> &GetInternalMap() { throw NotArraryOrMapException { }; }
-    virtual constexpr const map<std::string, std::unique_ptr<Value>> &GetInternalMap() const { throw NotArraryOrMapException { }; }
+    virtual constexpr void insert(std::string, const bool) { throw NotObjectException { }; }
+    virtual constexpr void insert(std::string, const int)  { throw NotObjectException { }; }
+    virtual constexpr void insert(std::string, const double)  { throw NotObjectException { }; }
+    virtual constexpr void insert(std::string, const std::string &)  { throw NotObjectException { }; }
+    virtual constexpr void insert(std::string, std::string &&)  { throw NotObjectException { }; }
+    virtual constexpr void insert(std::string, Value *)  { throw NotObjectException { }; }
+    virtual constexpr void insert(std::string, std::unique_ptr<Value> &&) { throw NotObjectException { }; }
+    virtual constexpr map<std::string, int> GetIntMap(bool) { throw NotObjectException { }; }
+    virtual constexpr map<std::string, bool> GetBoolMap(bool) { throw NotObjectException { }; }
+    virtual constexpr map<std::string, float> GetFloatMap(bool) { throw NotObjectException { }; }
+    virtual constexpr map<std::string, std::string> GetStringMap(bool) { throw NotObjectException { }; }
+
+    virtual constexpr const std::string &GetKey() const { throw NotMemberException(); }
+    virtual constexpr const Value &GetValue() const { throw NotMemberException(); }
+
+    virtual constexpr std::string &GetKey() { throw NotMemberException(); }
+    virtual constexpr Value &GetValue() { throw NotMemberException(); }
 
     virtual Iterator begin() { throw NotArraryOrMapException { }; }
     virtual Iterator end() { throw NotArraryOrMapException { }; }
@@ -619,6 +644,8 @@ class Ref {
 protected:
     std::unique_ptr<Value> obj;
 
+    const Value &GetConst() const { return *obj; }
+
 public:
     constexpr Ref(const std::string &text) : obj { Value::Parse(text) } { }
     constexpr Ref(const char *&text, size_t &size) : obj { Value::Parse(text, size) } { }
@@ -633,6 +660,7 @@ public:
     constexpr inline bool IsBool() const { return obj->IsBool(); }
     constexpr inline bool IsInteger() const { return obj->IsInteger(); }
     constexpr inline bool IsFloat() const { return obj->IsFloat(); }
+    constexpr inline bool IsMember() const { return obj->IsMember(); }
     constexpr inline bool IsArray() const { return obj->IsArray(); }
     constexpr inline bool IsObject() const { return obj->IsObject(); }
 
@@ -679,8 +707,12 @@ public:
     constexpr inline map<std::string, bool> GetBoolMap(bool ignore_exceptions) { return obj->GetBoolMap(ignore_exceptions); }
     constexpr inline map<std::string, float> GetFloatMap(bool ignore_exceptions) { return obj->GetFloatMap(ignore_exceptions); }
     constexpr inline map<std::string, std::string> GetStringMap(bool ignore_exceptions) { return obj->GetStringMap(ignore_exceptions); }
-    constexpr inline map<std::string, std::unique_ptr<Value>> &GetInternalMap() { return obj->GetInternalMap(); }
-    constexpr inline const map<std::string, std::unique_ptr<Value>> &GetInternalMap() const { return obj->GetInternalMap(); }
+
+    constexpr inline const std::string &GetKey() const { return GetConst().GetKey(); }
+    constexpr inline const Value &GetValue() const { return GetConst().GetValue(); }
+    constexpr inline std::string &GetKey() { return obj->GetKey(); }
+    constexpr inline Value &GetValue() { return obj->GetValue(); }
+
 
     constexpr inline Iterator begin() { return obj->begin(); }
     constexpr inline Iterator end() { return obj->end(); }
@@ -1165,67 +1197,126 @@ public:
     }
 };
 
-class ObjectIterator : public Iterator_Internal {
-    map<std::string, std::unique_ptr<Value>>::iterator itr;
+class Member : public Value {
+    friend class Object;
+
+    std::string key;
+    std::unique_ptr<Value> value;
 
 public:
-    ObjectIterator(map<std::string, std::unique_ptr<Value>>::iterator &&itr) : itr { std::move(itr) } { }
+    constexpr Member(const std::string &key, std::unique_ptr<Value> &&value) : key { key }, value { std::move(value) } { }
+    constexpr Member(std::string &&key, std::unique_ptr<Value> &&value) : key { std::move(key) }, value { std::move(value) } { }
+    constexpr Member(std::string &key, Value *value) : key { key }, value { value } { }
+    constexpr Member(std::string &&key, Value *value) : key { std::move(key) }, value { value } { }
+    constexpr Member(const std::string &key) : key { key }, value { } { }
+    constexpr Member(std::string &&key) : key { std::move(key) }, value { } { }
+
+    constexpr bool operator==(const Value& other) const override { 
+        auto rhs = dynamic_cast<const Member *>(&other);
+        return key == rhs->key && value->operator==(*rhs->value);
+    }
+    bool operator==(const Member& rhs) const {
+        return key == rhs.key && value->operator==(*rhs.value);
+    };
+
+    // Member must forward index to its value
+    Value *atptr(size_t index) const override { return value->atptr(index); }
+    Value *atptr(const std::string &key) const override { return value->atptr(key); }
+
+    constexpr type GetType() const noexcept override { return type::Member; }
+
+    constexpr const std::string &GetKey() const override { return key; }
+    constexpr const Value &GetValue() const override { return *value; }
+    constexpr std::string &GetKey() override { return key; }
+    constexpr Value &GetValue() override { return *value; }
+
+    constexpr void write(std::string &text, write_format_data &data) const override {
+        if (data.format.newline_before_object_member && !data.newline_added) {
+            text += '\n';
+            text += data.prefix;
+            data.newline_added = true;
+        }
+        text.push_back('"');
+        text += key;
+        text.push_back('"');
+        text.push_back(':');
+        if (value->IsObject() || value->IsArray())
+            data.newline_added = false;
+        else if (data.format.space_after_colon) text.push_back(' ');
+        value->write(text, data);
+    }
+};
+
+struct ObjectLess {
+    bool operator()(const std::unique_ptr<Member>& lhs, const std::unique_ptr<Member>& rhs) const {
+        return lhs->GetKey() < rhs->GetKey();
+    }
+};
+
+// unordered_set fails with -fanalyzer
+using ObjectStore = std::set<std::unique_ptr<Member>, ObjectLess>;
+
+
+class ObjectIterator : public Iterator_Internal {
+    ObjectStore::iterator itr;
+
+public:
+    ObjectIterator(ObjectStore::iterator &&itr) : itr { std::move(itr) } { }
     bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ObjectIterator *>(other)->itr; }
     bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ObjectIterator *>(other)->itr; }
-    Value &operator*() override { return *itr->second; }
-    Value *operator->() override { return itr->second.get(); }
+    Value &operator*() override { return **itr; }
+    Value *operator->() override { return itr->get(); }
     void Increment() override { ++itr; }
 };
 
 class ObjectConstIterator : public Iterator_Internal {
-    map<std::string, std::unique_ptr<Value>>::const_iterator itr;
+    ObjectStore::const_iterator itr;
 
 public:
-    ObjectConstIterator(map<std::string, std::unique_ptr<Value>>::const_iterator &&itr) : itr { std::move(itr) } { }
+    ObjectConstIterator(ObjectStore::const_iterator &&itr) : itr { std::move(itr) } { }
     bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ObjectConstIterator *>(other)->itr; }
     bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ObjectConstIterator *>(other)->itr; }
-    Value &operator*() override { return *itr->second; }
-    Value *operator->() override { return itr->second.get(); }
+    Value &operator*() override { return **itr; }
+    Value *operator->() override { return itr->get(); }
     void Increment() override { ++itr; }
 };
 
 class ObjectReverseIterator : public Iterator_Internal {
-    map<std::string, std::unique_ptr<Value>>::reverse_iterator itr;
+    ObjectStore::reverse_iterator itr;
 
 public:
-    ObjectReverseIterator(map<std::string, std::unique_ptr<Value>>::reverse_iterator &&itr) : itr { std::move(itr) } { }
+    ObjectReverseIterator(ObjectStore::reverse_iterator &&itr) : itr { std::move(itr) } { }
     bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ObjectReverseIterator *>(other)->itr; }
     bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ObjectReverseIterator *>(other)->itr; }
-    Value &operator*() override { return *itr->second; }
-    Value *operator->() override { return itr->second.get(); }
+    Value &operator*() override { return **itr; }
+    Value *operator->() override { return itr->get(); }
     void Increment() override { ++itr; }
 };
 
 class ObjectConstReverseIterator : public Iterator_Internal {
-    map<std::string, std::unique_ptr<Value>>::const_reverse_iterator itr;
+    ObjectStore::const_reverse_iterator itr;
 
 public:
-    ObjectConstReverseIterator(map<std::string, std::unique_ptr<Value>>::const_reverse_iterator &&itr) : itr { std::move(itr) } { }
+    ObjectConstReverseIterator(ObjectStore::const_reverse_iterator &&itr) : itr { std::move(itr) } { }
     bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ObjectConstReverseIterator *>(other)->itr; }
     bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ObjectConstReverseIterator *>(other)->itr; }
-    Value &operator*() override { return *itr->second; }
-    Value *operator->() override { return itr->second.get(); }
+    Value &operator*() override { return **itr; }
+    Value *operator->() override { return itr->get(); }
     void Increment() override { ++itr; }
 };
 
 
 class Object : public Value {
-    // unordered_map fails with -fanalyzer
-    map<std::string, std::unique_ptr<Value>> values { };
-    
+    ObjectStore values { };
+
 public:
     constexpr bool operator==(const Value& other) const override { 
         auto rhs = dynamic_cast<const Object *>(&other);
         if (values.size() != rhs->values.size()) return false;
         for(auto &value: values) {
-            auto itr = rhs->values.find(value.first);
+            auto itr = rhs->values.find(value);
             if (itr == std::end(rhs->values)) return false;
-            if (*value.second != *itr->second) return false;
+            if (*value != **itr) return false;
         }
         return true;
     }
@@ -1256,33 +1347,21 @@ public:
                 text += data.prefix;
                 data.newline_added = true;
             }
-            auto itr = std::begin(values);
-            text.push_back('"');
-            text += itr->first;
-            text.push_back('"');
-            text.push_back(':');
-            if (itr->second->GetType() == type::Object || itr->second->GetType() == type::Array)
-                data.newline_added = false;
-            else if (data.format.space_after_colon) text.push_back(' ');
-            itr->second->write(text, data);
-            itr = std::next(itr);
-            while(itr != std::end(values)) {
+            auto itr = std::begin(*this);
+            auto end = std::end(*this);
+            for(;;)
+            {
+                itr->write(text, data);
+                ++itr;
+                if (itr == end) break;
                 text.push_back(',');
                 if (data.format.newline_after_comma || data.format.newline_before_object_member) {
                     text += '\n';
                     text += data.prefix;
                     data.newline_added = true;
                 } else if (data.format.space_after_comma) text.push_back(' ');
-                text.push_back('"');
-                text += itr->first;
-                text.push_back('"');
-                text.push_back(':');
-                if (itr->second->GetType() == type::Object || itr->second->GetType() == type::Array)
-                    data.newline_added = false;
-                else if (data.format.space_after_colon) text.push_back(' ');
-                itr->second->write(text, data);
-                itr = std::next(itr);
             }
+
             const auto prefixsize = data.prefix.size();
             const auto intendsize = data.format.intendtext.size();
             data.prefix.erase(prefixsize - intendsize, intendsize);
@@ -1299,17 +1378,18 @@ public:
         } else data.newline_added = false;
     }
 
-    Value *atptr(size_t index) const override { 
+    constexpr Value *atptr(const std::string &key) const override {
+        auto pair_key = std::make_unique<Member>(key);
+        auto itr = values.find(pair_key);
+        if (itr == std::end(values)) return &Error::error;
+        return (*itr)->value.get();
+    }
+
+    constexpr Value *atptr(size_t index) const override {
         auto key = std::to_string(index);
-        auto itr = values.find(key);
-        if (itr == std::end(values)) return &Error::error;
-        return itr->second.get();
+        return atptr(key);
     }
-    Value *atptr(const std::string &key) const override {
-        auto itr = values.find(key);
-        if (itr == std::end(values)) return &Error::error;
-        return itr->second.get();
-    }
+
 
     constexpr type GetType() const noexcept override { return type::Object; }
 
@@ -1320,9 +1400,10 @@ public:
         ++text; --size;
         auto value = Value::ParseInternal(text, size);
         if (key.empty()) throw JsonParseException(text, size, exception_t::OBJECT_NULL_KEY);
-        auto itr = obj->values.find(key);
-        if (itr != std::end(obj->values)) throw JsonParseException(text, size, exception_t::OBJECT_DUPLICATE_KEY);
-        obj->values.emplace(key, value);
+        auto valueitr = obj->atptr(key);
+        if (!valueitr->IsError()) throw JsonParseException(text, size, exception_t::OBJECT_DUPLICATE_KEY);
+        auto member = new Member {std::move(key), value};
+        obj->values.emplace(member);
     }
 
     static constexpr Value *Parse(const char *&text, size_t &size) {
@@ -1348,48 +1429,56 @@ public:
 
     constexpr void insert(std::string key, const bool value) override {
         auto json = new Bool { value };
-        values.emplace(key, json);
+        auto member = new Member(key, json);
+        values.emplace(member);
     }
 
     constexpr void insert(std::string key, const int value) override {
         auto json = new Integer { value };
-        values.emplace(key, json);
+        auto member = new Member(key, json);
+        values.emplace(member);
+
     }
 
     constexpr void insert(std::string key, const double value) override {
         auto json = new Float { value };
-        values.emplace(key, json);
+        auto member = new Member(key, json);
+        values.emplace(member);
     }
 
     constexpr void insert(std::string key, const std::string &value) override {
         auto json = new String { value };
-        values.emplace(key, json);
+        auto member = new Member(key, json);
+        values.emplace(member);
     }
 
     constexpr void insert(std::string key, std::string &&value) override {
         auto json = new String { std::move(value) };
-        values.emplace(key, json);
+        auto member = new Member(key, json);
+        values.emplace(member);
     }
 
     constexpr void insert(std::string key, Value *json) override {
-        values.emplace(key, json);
+        auto member = new Member(key, json);
+        values.emplace(member);
     }
 
     constexpr void insert(std::string key, std::unique_ptr<Value> &&json) override {
-        values.emplace(key, std::move(json));
+        auto member = new Member { key, std::move(json) };
+        values.emplace(member);
     }
 
     constexpr vector<int> GetIntVector(bool exclude_non_int = true) override {
         vector<int> ret { };
         if (exclude_non_int) {
-            for(auto &value: values) {
+            for(auto &value: *this) {
                 try {
-                    ret.push_back(value.second->GetInt());
+                    ret.push_back(value.GetValue().GetInt());
                 } catch(NotIntegerException &) {}
             }
         } else {
-            for(auto &value: values) {
-                ret.push_back(value.second->GetInt());
+            for(auto &value: *this) {
+                ret.push_back(value.GetValue().GetInt());
             }
         }
         return ret;
@@ -1398,14 +1487,14 @@ public:
     constexpr vector<bool> GetBoolVector(bool exclude_non_bool = true) override {
         vector<bool> ret { };
         if (exclude_non_bool) {
-            for(auto &value: values) {
+            for(auto &value: *this) {
                 try {
-                    ret.push_back(value.second->GetBool());
+                    ret.push_back(value.GetValue().GetBool());
                 } catch(NotBoolException &) {}
             }
         } else {
-            for(auto &value: values) {
-                ret.push_back(value.second->GetBool());
+            for(auto &value: *this) {
+                ret.push_back(value.GetValue().GetBool());
             }
         }
         return ret;
@@ -1414,14 +1503,14 @@ public:
     constexpr vector<float> GetFloatVector(bool exclude_non_float = true) override {
         vector<float> ret { };
         if (exclude_non_float) {
-            for(auto &value: values) {
+            for(auto &value: *this) {
                 try {
-                    ret.push_back(value.second->GetFloat());
+                    ret.push_back(value.GetValue().GetFloat());
                 } catch(NotFloatException &) {}
             }
         } else {
-            for(auto &value: values) {
-                ret.push_back(value.second->GetFloat());
+            for(auto &value: *this) {
+                ret.push_back(value.GetValue().GetFloat());
             }
         }
         return ret;
@@ -1430,14 +1519,14 @@ public:
     constexpr vector<std::string> GetStringVector(bool exclude_non_string = true) override {
         vector<std::string> ret { };
         if (exclude_non_string) {
-            for(auto &value: values) {
+            for(auto &value: *this) {
                 try {
-                    ret.push_back(value.second->GetStringCopy());
+                    ret.push_back(value.GetValue().GetStringCopy());
                 } catch(NotStringException &) {}
             }
         } else {
-            for(auto &value: values) {
-                ret.push_back(value.second->GetStringCopy());
+            for(auto &value: *this) {
+                ret.push_back(value.GetValue().GetStringCopy());
             }
         }
         return ret;
@@ -1446,14 +1535,14 @@ public:
     constexpr map<std::string, int> GetIntMap(bool exclude_non_int = true) override {
         map<std::string, int> ret { };
         if (exclude_non_int) {
-            for(auto &value: values) {
+            for(auto &value: *this) {
                 try {
-                    ret.emplace(value.first, value.second->GetInt());
+                    ret.emplace(value.GetKey(), value.GetValue().GetInt());
                 } catch(NotIntegerException &) {}
             }
         } else {
-            for(auto &value: values) {
-                ret.emplace(value.first, value.second->GetInt());
+            for(auto &value: *this) {
+                ret.emplace(value.GetKey(), value.GetValue().GetInt());
             }
         }
         return ret;
@@ -1462,14 +1551,14 @@ public:
     constexpr map<std::string, bool> GetBoolMap(bool exclude_non_bool = true) override {
         map<std::string, bool> ret { };
         if (exclude_non_bool) {
-            for(auto &value: values) {
+            for(auto &value: *this) {
                 try {
-                    ret.emplace(value.first, value.second->GetBool());
+                    ret.emplace(value.GetKey(), value.GetValue().GetBool());
                 } catch(NotBoolException &) {}
             }
         } else {
-            for(auto &value: values) {
-                ret.emplace(value.first, value.second->GetBool());
+            for(auto &value: *this) {
+                ret.emplace(value.GetKey(), value.GetValue().GetBool());
             }
         }
         return ret;
@@ -1478,14 +1567,14 @@ public:
     constexpr map<std::string, float> GetFloatMap(bool exclude_non_float = true) override {
         map<std::string, float> ret { };
         if (exclude_non_float) {
-            for(auto &value: values) {
+            for(auto &value: *this) {
                 try {
-                    ret.emplace(value.first, value.second->GetFloat());
+                    ret.emplace(value.GetKey(), value.GetValue().GetFloat());
                 } catch(NotFloatException &) {}
             }
         } else {
-            for(auto &value: values) {
-                ret.emplace(value.first, value.second->GetFloat());
+            for(auto &value: *this) {
+                ret.emplace(value.GetKey(), value.GetValue().GetFloat());
             }
         }
         return ret;
@@ -1494,21 +1583,18 @@ public:
     constexpr map<std::string, std::string> GetStringMap(bool exclude_non_string = true) override {
         map<std::string, std::string> ret { };
         if (exclude_non_string) {
-            for(auto &value: values) {
+            for(auto &value: *this) {
                 try {
-                    ret.emplace(value.first, value.second->GetString());
+                    ret.emplace(value.GetKey(), value.GetValue().GetString());
                 } catch(NotStringException &) {}
             }
         } else {
-            for(auto &value: values) {
-                ret.emplace(value.first, value.second->GetString());
+            for(auto &value: *this) {
+                ret.emplace(value.GetKey(), value.GetValue().GetString());
             }
         }
         return ret;
     }
-
-    constexpr map<std::string, std::unique_ptr<Value>> &GetInternalMap() override { return values; }
-    constexpr const map<std::string, std::unique_ptr<Value>> &GetInternalMap() const override { return values; }
 }; // class Object
 
 constexpr Value *Value::ParseIntegerOrFloat(const char *&text, size_t &size) {
