@@ -53,6 +53,7 @@ Here’s an example JSON:
   }
 }
 ```
+
 In this example, `"key19": "16"` stores the value "16" as a string, but it can be retrieved as an integer like this:
 ```cpp
 auto value = json["Key1"]["key19"].GetInt(); // value == 16
@@ -90,21 +91,58 @@ jsonarray.push_back(jsonfloat); // Example 3
 // jsonfloat will be deleted by jsonarray
 ```
 
-In Example 1, a JSON integer is directly inserted into the Array. In Example 2, a unique pointer is created and then moved into the Array. In Example 3, a raw pointer is passed to the Array. For non-array or non-object types, values can be created directly.
+In Example 1, a JSON integer is directly inserted into the Array. In Example 2, a unique pointer is created and then moved into the Array. In Example 3, a raw pointer is passed to the Array. For non-array or non-object types, values can be created directly into array or object.
 
+To keep interface simple emplace_back is implemented with push_back.
+
+To insert into object, key must be provided andd insert function must be used.
+
+```cpp
+jsonarray.insert("key1", 10); // Example 1
+// or
+auto jsonvalue = std::make_unique<rohit::json::Integer>(10);
+jsonarray.insert("key1", std::move(jsonvalue)); // Example 2
+// or
+auto jsonfloat = new rohit::json::Float { 10.10 };
+jsonarray.insert("key1", jsonfloat); // Example 3
+// jsonfloat will be deleted by jsonarray
+```
 
 ### Query interface
 The JSON child can be accessed using the Query interface. One advantage of the Query interface is that if the child is not present, it will return an Error object rather than throwing an exception. In contrast, using the index operator, as mentioned earlier, may result in an exception.
 
 In our previous json example you can query like below.
 ```cpp
-    auto json = rohit::json::Parse(samplejsonlist[0]);
+    auto json = rohit::json::Parse(jsontext);
     auto &jsonvalue = json.Query(std::string {"/Key1/key12"});
     // jsonvalue.GetInt() == 32
 
     auto &jsonvalue1 = json.Query(std::string {"/Key1/Key25"});
     // jsonvalue1.IsError() == true
 ```
+
+### Iterator
+Iterators are implement in Array and Objects only.
+
+Array iterator return the Value of its storage type. In above json example mentioned in [Retrieval](#Retrieval)
+```cpp
+  auto &jsonarray = json.Query(std::string {"/Key1/key13"});
+  for(auto &val: jsonarray) {
+    auto int_value = val.GetInt();
+    // use int_value it will iterate through 0, 1, 2, 3, 4, 5, 6.
+  }
+```
+
+For same example object can be iterated as:
+```cpp
+  auto &jsonobject = json.Query(std::string {"/Key1"});
+  for(auto &member: jsonobject) {
+    auto &key = member.GetKey();
+    auto &value = member.GetValue();
+    // You can use key and value here.
+  }
+```
+Object will always return member that is pair of Key and Value.
 
 ### Allowed syntax
 #### Caps letter
@@ -133,9 +171,22 @@ Following syntax is allowed
 ```
 See comma at the end of 6 and end of true. This is not allowed as per RFC, this library allows it.
 
+## Data Types
+As per [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259) following data types are implemented:
+1. Null,
+1. Boolean (True and False),
+1. Number - This is divided Integer and Float. RFC requires only Number.
+    1. Integer
+    1. Float
+1. String
+1. Array
+1. Object
+1. Member - This is object member.
+
+Additional type Error is defined to represent object not found in Array or Object.
 
 ## IMPORTANT
 1. Once pointer is passed to Array or Object memory is manager by Array or Object. It will be freed on exit, in case this memory if freed manually double free will occur.
 
 ## Limitation
-1. std::map is used for storing JSON object data, although this is not required to be sorted. Even though std::unordered_map is much faster it cannot be used as -fanalyzer reports memory leak with it.
+1. std::map and std::set is used for storing JSON object data, although this is not required to be sorted. Even though std::unordered_map and std::set is much faster it cannot be used as -fanalyzer reports memory leak with it.
