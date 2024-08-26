@@ -433,6 +433,7 @@ public:
     constexpr bool IsBool() const { return GetType() == type::Bool; }
     constexpr bool IsInteger() const { return GetType() == type::NumberInt; }
     constexpr bool IsFloat() const { return GetType() == type::NumberFloat; }
+    constexpr bool IsString() const { return GetType() == type::String; }
     constexpr bool IsMember() const { return GetType() == type::Member; }
     constexpr bool IsArray() const { return GetType() == type::Array; }
     constexpr bool IsObject() const { return GetType() == type::Object; }
@@ -660,6 +661,7 @@ public:
     constexpr inline bool IsBool() const { return obj->IsBool(); }
     constexpr inline bool IsInteger() const { return obj->IsInteger(); }
     constexpr inline bool IsFloat() const { return obj->IsFloat(); }
+    constexpr inline bool IsString() const { return obj->IsString(); }
     constexpr inline bool IsMember() const { return obj->IsMember(); }
     constexpr inline bool IsArray() const { return obj->IsArray(); }
     constexpr inline bool IsObject() const { return obj->IsObject(); }
