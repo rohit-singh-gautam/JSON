@@ -23,7 +23,7 @@
 #include <sstream>
 #include <format>
 
-std::string GetFromFile(const std::filesystem::path &path) {
+std::string ReadStringFromFile(const std::filesystem::path &path) {
     if (!std::filesystem::is_regular_file(path)) {
         throw std::invalid_argument { "Not a valid file" };
     }
@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    auto original_text = GetFromFile(argv[1]);
+    auto original_text = ReadStringFromFile(argv[1]);
     auto json = rohit::json::Ref(original_text);
     auto beautified_text = json.write(rohit::json::format::beautify);
 
