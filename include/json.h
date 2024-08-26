@@ -463,8 +463,6 @@ public:
     virtual constexpr vector<bool> GetBoolVector(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr vector<float> GetFloatVector(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr vector<std::string> GetStringVector(bool) { throw NotArraryOrMapException { }; }
-    virtual constexpr vector<std::unique_ptr<Value>> &GetInternalVector() { throw NotArraryOrMapException { }; }
-    virtual constexpr const vector<std::unique_ptr<Value>> &GetInternalVector() const { throw NotArraryOrMapException { }; }
     virtual constexpr void insert(std::string, const bool) { throw NotObjectException { }; }
     virtual constexpr void insert(std::string, const int)  { throw NotObjectException { }; }
     virtual constexpr void insert(std::string, const double)  { throw NotObjectException { }; }
@@ -476,6 +474,10 @@ public:
     virtual constexpr map<std::string, bool> GetBoolMap(bool) { throw NotObjectException { }; }
     virtual constexpr map<std::string, float> GetFloatMap(bool) { throw NotObjectException { }; }
     virtual constexpr map<std::string, std::string> GetStringMap(bool) { throw NotObjectException { }; }
+
+    virtual constexpr size_t empty() const { throw NotArraryOrMapException(); }
+    virtual constexpr size_t size() const { throw NotArraryOrMapException(); }
+    constexpr inline size_t length() const { return size(); }
 
     virtual constexpr const std::string &GetKey() const { throw NotMemberException(); }
     virtual constexpr const Value &GetValue() const { throw NotMemberException(); }
@@ -696,8 +698,6 @@ public:
     constexpr inline vector<bool> GetBoolVector(bool ignore_exceptions) { return obj->GetBoolVector(ignore_exceptions); }
     constexpr inline vector<float> GetFloatVector(bool ignore_exceptions) { return obj->GetFloatVector(ignore_exceptions); }
     constexpr inline vector<std::string> GetStringVector(bool ignore_exceptions) { return obj->GetStringVector(ignore_exceptions); }
-    constexpr inline vector<std::unique_ptr<Value>> &GetInternalVector() { return obj->GetInternalVector(); }
-    constexpr inline const vector<std::unique_ptr<Value>> &GetInternalVector() const { return obj->GetInternalVector(); }
     constexpr inline void insert(std::string key, const bool value) { return obj->insert(key, value); }
     constexpr inline void insert(std::string key, const int value) { return obj->insert(key, value); }
     constexpr inline void insert(std::string key, const double value) { return obj->insert(key, value); }
@@ -709,6 +709,10 @@ public:
     constexpr inline map<std::string, bool> GetBoolMap(bool ignore_exceptions) { return obj->GetBoolMap(ignore_exceptions); }
     constexpr inline map<std::string, float> GetFloatMap(bool ignore_exceptions) { return obj->GetFloatMap(ignore_exceptions); }
     constexpr inline map<std::string, std::string> GetStringMap(bool ignore_exceptions) { return obj->GetStringMap(ignore_exceptions); }
+
+    constexpr inline size_t empty() const { return obj->empty(); }
+    constexpr inline size_t size() const { return obj->size(); }
+    constexpr inline size_t length() const { return obj->length(); }
 
     constexpr inline const std::string &GetKey() const { return GetConst().GetKey(); }
     constexpr inline const Value &GetValue() const { return GetConst().GetValue(); }
@@ -1171,8 +1175,8 @@ public:
         return ret;
     }
 
-    constexpr vector<std::unique_ptr<Value>> &GetInternalVector() override { return values; }
-    constexpr const vector<std::unique_ptr<Value>> &GetInternalVector() const override { return values; }
+    constexpr size_t empty() const override { return values.empty(); }
+    constexpr size_t size() const override { return values.size(); }
 
     constexpr type GetType() const noexcept override { return type::Array; }
 
@@ -1597,6 +1601,9 @@ public:
         }
         return ret;
     }
+
+    constexpr size_t empty() const override { return values.empty(); }
+    constexpr size_t size() const override { return values.size(); }
 }; // class Object
 
 constexpr Value *Value::ParseIntegerOrFloat(const char *&text, size_t &size) {
