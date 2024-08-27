@@ -306,8 +306,8 @@ public:
     auto end() const { return _end; }
     auto curr() const { return _curr; }
 
-    auto size() const { return static_cast<size_t>(_curr - _begin); }
-    auto remaining_size() const { return static_cast<size_t>(_end - _curr); }
+    auto index() const { return static_cast<size_t>(_curr - _begin); }
+    auto remaining_buffer() const { return static_cast<size_t>(_end - _curr); }
     auto capacity() const { return static_cast<size_t>(_end - _begin); }
 
     void UpdateCurr(const char *_curr) { this->_curr = _curr; }
@@ -329,7 +329,7 @@ public:
     std::string to_string() const {
         std::string errstr { "JSON Parser failed at: " };
 
-        if (stream.size() >= 40 ){
+        if (stream.index() >= 40 ){
             std::string_view initial {stream.begin(), 16};
             for(auto &current_ch: initial) {
                 if (current_ch >= 32 /* &&  current_ch <= 127 */) {
@@ -345,7 +345,7 @@ public:
                 } else errstr.push_back('#');
             }
         } else {
-            std::string_view initial {stream.begin(), stream.size()};
+            std::string_view initial {stream.begin(), stream.index()};
             for(auto &current_ch: initial) {
                 if (current_ch >= 32 /* &&  current_ch <= 127 */) {
                     errstr.push_back(current_ch);
@@ -357,15 +357,15 @@ public:
         errstr += rohit::json::to_string(value);
         errstr += " --| ";
 
-        std::string_view last {stream.curr(), std::min<size_t>(16, stream.remaining_size())};
+        std::string_view last {stream.curr(), std::min<size_t>(16, stream.remaining_buffer())};
         for(auto &current_ch: last) {
             if (current_ch >= 32 /* &&  current_ch <= 127 */) {
                 errstr.push_back(current_ch);
             } else errstr.push_back('#');
         }
-        if (stream.remaining_size() > 16) {
+        if (stream.remaining_buffer() > 16) {
             errstr += " ... more ";
-            errstr += std::to_string(stream.remaining_size() - 16UL);
+            errstr += std::to_string(stream.remaining_buffer() - 16UL);
             errstr += " characters.";
         }
 
@@ -383,7 +383,7 @@ public:
 template <bool casesensitive, const size_t _size>
 constexpr void Stream::Match(const char (&text)[_size]) {
     // Adding + 1 to index to skip null termination
-    if (remaining_size() + 1 < _size) throw JsonParseException { *this, exception_t::UNKNOWN_KEYWORD_OR_PREMATURE_TERMINATION };
+    if (remaining_buffer() + 1 < _size) throw JsonParseException { *this, exception_t::UNKNOWN_KEYWORD_OR_PREMATURE_TERMINATION };
     for(size_t index { 0 }; index + 1 < _size; ++index) {
         if constexpr (casesensitive)  {
             if (*_curr != text[index]) throw exception_t::UNKNOWN_KEYWORD;
@@ -1677,7 +1677,7 @@ constexpr Value *Value::ParseIntegerOrFloat(Stream &stream) {
     // Find text, float, string or error
     bool is_float = false;
 
-    while(temp.remaining_size()) {
+    while(temp.remaining_buffer()) {
         if (*temp == '.') {
             is_float = true;
             break;

@@ -309,6 +309,36 @@ TEST(JSONTest, EmptyTest) {
     EXPECT_TRUE(obj.IsObject() && obj.empty());
 }
 
+TEST(StreamTest, ExceptionTest) {
+    std::string teststr { "Test" };
+    rohit::json::Stream str { teststr };
+    ASSERT_THROW(--str, rohit::json::StreamUnderflowException);
+    EXPECT_TRUE(*str == 'T');
+    EXPECT_TRUE(str.index() == 0);
+    EXPECT_TRUE(str.capacity() == 4);
+    EXPECT_TRUE(str.remaining_buffer() == 4);
+    ++str;
+    EXPECT_TRUE(*str == 'e');
+    EXPECT_TRUE(str.index() == 1);
+    EXPECT_TRUE(str.capacity() == 4);
+    EXPECT_TRUE(str.remaining_buffer() == 3);
+    ++str;
+    EXPECT_TRUE(*str == 's');
+    EXPECT_TRUE(str.index() == 2);
+    EXPECT_TRUE(str.capacity() == 4);
+    EXPECT_TRUE(str.remaining_buffer() == 2);
+    ++str;
+    EXPECT_TRUE(*str == 't');
+    EXPECT_TRUE(str.index() == 3);
+    EXPECT_TRUE(str.capacity() == 4);
+    EXPECT_TRUE(str.remaining_buffer() == 1);
+    ++str;
+    EXPECT_TRUE(str.index() == 4);
+    EXPECT_TRUE(str.capacity() == 4);
+    EXPECT_TRUE(str.remaining_buffer() == 0);
+    ASSERT_THROW(*str, rohit::json::StreamOverflowException);
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
