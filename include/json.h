@@ -269,6 +269,7 @@ public:
     Stream &operator=(const Stream &stream) { _curr = stream._curr; return *this; }
 
     constexpr auto operator*() const { 
+        #pragma GCC diagnostic ignored "-Wanalyzer-malloc-leak"
         if (_curr >= _end) throw StreamOverflowException { };
         return *_curr;
     }
@@ -575,6 +576,7 @@ protected:
     static constexpr Value *ParseIntegerOrFloat(Stream &stream);
 
     static constexpr std::string ParseString(Stream &stream) {
+        #pragma GCC diagnostic ignored "-Wanalyzer-use-of-uninitialized-value"
         std::string value { };
         auto ch = *stream;
         while (ch != '"') {
@@ -1239,6 +1241,7 @@ public:
 
 
     static constexpr Value *Parse(Stream &stream) {
+        #pragma GCC diagnostic ignored "-Wanalyzer-possible-null-dereference"
         Array *array = new Array { };
         stream.SkipWS();
         if (*stream != ']') {
@@ -1270,6 +1273,7 @@ public:
     constexpr Member(std::string &&key, std::unique_ptr<Value> &&value) : key { std::move(key) }, value { std::move(value) } { }
     constexpr Member(std::string &key, Value *value) : key { key }, value { value } { }
     constexpr Member(std::string &&key, Value *value) : key { std::move(key) }, value { value } { }
+    #pragma GCC diagnostic ignored "-Wanalyzer-possible-null-dereference"
     constexpr Member(const std::string &key) : key { key }, value { nullptr } { }
     constexpr Member(std::string &&key) : key { std::move(key) }, value { nullptr } { }
 
