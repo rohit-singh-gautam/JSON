@@ -126,6 +126,8 @@ struct write_format_data {
 
 #define ERROR_T_LIST \
     ERROR_T_ENTRY(SUCCESS, "SUCCESS") \
+    ERROR_T_ENTRY(STREAM_UNDERFLOW, "Stream moved before begin") \
+    ERROR_T_ENTRY(STREAM_OVERFLOW, "Stream moved to end") \
     ERROR_T_ENTRY(NOT_ARRAY_OR_MAP, "Not an array or map") \
     ERROR_T_ENTRY(NOT_BOOL, "Not a bool") \
     ERROR_T_ENTRY(NOT_NULL, "Not a null") \
@@ -177,6 +179,21 @@ public:
     Exception(Exception &&rhs) : std::exception { std::move(rhs) }, value {rhs.value} { }
 
     const char* what() const noexcept override { return to_string(value); }
+};
+
+class StreamException : public Exception {
+public:
+    using Exception::Exception;
+};
+
+class StreamUnderflowException : public StreamException {
+public:
+    StreamUnderflowException() : StreamException { exception_t::STREAM_UNDERFLOW } { }
+};
+
+class StreamOverflowException : public StreamException {
+public:
+    StreamOverflowException() : StreamException { exception_t::STREAM_OVERFLOW } { }
 };
 
 class NotArraryOrMapException : public Exception {
@@ -234,71 +251,118 @@ public:
     ObjectOutOfRangeException() : Exception { exception_t::OBJECT_OUT_OF_RANGE } { }
 };
 
+class Stream {
+    const char * _begin;
+    const char * _end;
+    const char *_curr;
+
+public:
+    constexpr Stream(const char *_begin, const char *_end) : _begin { _begin }, _end { _end }, _curr { _begin } { }
+    constexpr Stream(const char *_begin, size_t size) : _begin { _begin }, _end { _begin + size }, _curr { _begin } { }
+    constexpr Stream(const std::string &text) : _begin { text.c_str() }, _end { text.c_str() + text.size() }, _curr { _begin } { }
+    constexpr Stream(Stream &&stream) : _begin { stream._begin }, _end { stream._end }, _curr { stream._curr } {
+        _begin = _end = _curr = nullptr;
+    }
+    Stream(const Stream &stream) : _begin { stream._begin }, _end { stream._end }, _curr { stream._curr } { }
+    Stream &operator=(const Stream &stream) { _curr = stream._curr; return *this; }
+
+    constexpr auto operator*() const { 
+        if (_curr >= _end) throw StreamOverflowException { };
+        return *_curr;
+    }
+    constexpr Stream &operator++() {
+        ++_curr;
+        return *this;
+    }
+    constexpr Stream &operator--() { 
+        if (_curr == _begin) throw StreamUnderflowException { };
+        --_curr;
+        return *this;
+    }
+    Stream operator++(int) = delete;
+    Stream operator--(int) = delete;
+    constexpr auto operator[](size_t index) const { return _begin[index]; }
+
+    static constexpr auto IsWS(const char ch) {
+        /*/
+            https://www.rfc-editor.org/rfc/rfc8259 [Page 6]
+            ws = *(
+                %x20 /              ; Space
+                %x09 /              ; Horizontal tab
+                %x0A /              ; Line feed or New line
+                %x0D )              ; Carriage return
+        */
+        return ch == 0x20 || ch == 0x09 || ch == 0x0A || ch == 0x0D;
+    }
+
+    void SkipWS() {
+        while(_curr != _end && IsWS(*_curr)) { ++_curr; }
+    }
+
+    auto begin() const { return _begin; }
+    auto end() const { return _end; }
+    auto curr() const { return _curr; }
+
+    auto size() const { return static_cast<size_t>(_curr - _begin); }
+    auto remaining_size() const { return static_cast<size_t>(_end - _curr); }
+    auto capacity() const { return static_cast<size_t>(_end - _begin); }
+
+    void UpdateCurr(const char *_curr) { this->_curr = _curr; }
+
+    template <bool casesensitive = false, const size_t _size>
+    constexpr void Match(const char (&text)[_size]);
+};
+
 class Value;
 class JsonParseException : public Exception {
-    friend class Value;
-    const char *start_position { };
-    const char *current_position;
-    size_t buffer_remaining;
+    const Stream stream;
 public:
-    JsonParseException(const char *current_position, const size_t buffer_remaining, const exception_t except)
-        : Exception { except }, current_position { current_position }, buffer_remaining { buffer_remaining } { }
-    JsonParseException(JsonParseException &&rhs) : Exception { std::move(rhs) }, start_position { rhs.start_position }, current_position { rhs.current_position }, buffer_remaining { rhs.buffer_remaining } {
-        rhs.start_position = nullptr;
-        rhs.current_position = nullptr;
-        rhs.buffer_remaining = 0;
-    }
+    JsonParseException(const Stream &stream, const exception_t except)
+        : Exception { except }, stream { stream } { }
+    JsonParseException(JsonParseException &&rhs) : Exception { std::move(rhs) }, stream { std::move(rhs.stream) } {}
     JsonParseException(const JsonParseException &) = delete;
     JsonParseException &operator=(const JsonParseException &) = delete;
 
     std::string to_string() const {
         std::string errstr { "JSON Parser failed at: " };
 
-        if (current_position < start_position) {
-            errstr += "Underflow - ";
-        } else 
-        {
-            if (current_position - start_position >= 40 ){
-                for(size_t index { 0 }; index < 16; ++index) {
-                    auto current_ch = start_position[index];
-                    if (current_ch >= 32 /* &&  current_ch <= 127 */) {
-                        errstr.push_back(current_ch);
-                    } else errstr.push_back('#');
-                }
-                errstr += " ... ";
-
-                for(size_t index { 16 }; index; --index) {
-                    auto current_ch = *(current_position - index);
-                    if (current_ch >= 32 /* &&  current_ch <= 127 */) {
-                        errstr.push_back(current_ch);
-                    } else errstr.push_back('#');
-                }
-            } else {
-                auto itr = start_position;
-                while(itr < current_position) {
-                    auto current_ch = *itr;
-                    if (current_ch >= 32 /* &&  current_ch <= 127 */) {
-                        errstr.push_back(current_ch);
-                    } else errstr.push_back(current_ch);
-
-                    ++itr;
-                }
+        if (stream.size() >= 40 ){
+            Stream initial {stream.begin(), stream.begin() + 16};
+            for(auto &current_ch: initial) {
+                if (current_ch >= 32 /* &&  current_ch <= 127 */) {
+                    errstr.push_back(current_ch);
+                } else errstr.push_back('#');
             }
+            errstr += " ... ";
 
-            errstr += " <-- failed here ";
-            errstr += rohit::json::to_string(value);
-            errstr += " --| ";
+            Stream second {stream.curr() - 16, stream.curr()};
+            for(auto &current_ch: initial) {
+                if (current_ch >= 32 /* &&  current_ch <= 127 */) {
+                    errstr.push_back(current_ch);
+                } else errstr.push_back('#');
+            }
+        } else {
+            Stream initial {stream.begin(), stream.curr()};
+            for(auto &current_ch: initial) {
+                if (current_ch >= 32 /* &&  current_ch <= 127 */) {
+                    errstr.push_back(current_ch);
+                } else errstr.push_back('#');
+            }
         }
 
-        for(size_t index { 0 }; index < std::min(16UL, buffer_remaining); ++index) {
-            auto current_ch = current_position[index];
+        errstr += " <-- failed here ";
+        errstr += rohit::json::to_string(value);
+        errstr += " --| ";
+
+        Stream last {stream.curr(), std::min(stream.curr() + 16, stream.end())};
+        for(auto &current_ch: last) {
             if (current_ch >= 32 /* &&  current_ch <= 127 */) {
                 errstr.push_back(current_ch);
             } else errstr.push_back('#');
         }
-        if (buffer_remaining > 16) {
+        if (stream.remaining_size() > 16) {
             errstr += " ... more ";
-            errstr += std::to_string(buffer_remaining - 16UL);
+            errstr += std::to_string(stream.remaining_size() - 16UL);
             errstr += " characters.";
         }
 
@@ -312,6 +376,20 @@ public:
     }
 
 };
+
+template <bool casesensitive, const size_t _size>
+constexpr void Stream::Match(const char (&text)[_size]) {
+    // Adding + 1 to index to skip null termination
+    if (remaining_size() + 1 < _size) throw JsonParseException { *this, exception_t::UNKNOWN_KEYWORD_OR_PREMATURE_TERMINATION };
+    for(size_t index { 0 }; index + 1 < _size; ++index) {
+        if constexpr (casesensitive)  {
+            if (*_curr != text[index]) throw exception_t::UNKNOWN_KEYWORD;
+        } else {
+            if (*_curr != std::tolower(text[index])) throw exception_t::UNKNOWN_KEYWORD;
+        }
+        ++_curr;
+    }
+}
 
 class ParseException : public Exception {
 public:
@@ -408,22 +486,6 @@ protected:
     static constexpr const char NameSeparator { ':' };
     static constexpr const char ValueSeparator { ',' };
 
-    static constexpr auto IsWS(const char ch) {
-        /*/
-            https://www.rfc-editor.org/rfc/rfc8259 [Page 6]
-            ws = *(
-                %x20 /              ; Space
-                %x09 /              ; Horizontal tab
-                %x0A /              ; Line feed or New line
-                %x0D )              ; Carriage return
-        */
-        return ch == 0x20 || ch == 0x09 || ch == 0x0A || ch == 0x0D;
-    }
-
-    static constexpr auto SkipWS(const char *&text, size_t &size) {
-        while(size && IsWS(*text)) { ++text; --size; }
-    }
-
 public:
     virtual constexpr void write(std::string &, write_format_data &) const = 0;
 
@@ -501,88 +563,72 @@ public:
     constexpr auto &at(size_t index) const { return *atptr(index); }
     constexpr auto &at(const std::string &key) const { return *atptr(key); }
 
-    static constexpr Value *Parse(const char *&text, size_t &size) {
-        try {
-            return ParseInternal(text, size);
-        } catch(JsonParseException &jsonexp) {
-            jsonexp.start_position = text;
-            throw std::move(jsonexp);
-        }
-    }
-
+    static constexpr Value *Parse(Stream &stream);
     static constexpr Value *Parse(const std::string &text) { 
-        const char *textptr = text.c_str();
-        size_t size = text.size();
-        return Parse(textptr, size);
+        Stream stream { text };
+        return Parse(stream);
     }
 
 protected:
-    static constexpr Value *ParseInternal(const char *&text, size_t &size);
-    static constexpr Value *ParseIntegerOrFloat(const char *&text, size_t &size);
+    static constexpr Value *ParseIntegerOrFloat(Stream &stream);
 
-    static constexpr std::string ParseString(const char *&text, size_t &size) {
-        if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
+    static constexpr std::string ParseString(Stream &stream) {
         std::string value { };
-        while(*text != '"') {
-            if (*text == '\\') {
-                ++text;
-                --size;
-                if (size < 2) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
-                switch(*text) {
+        while(*stream != '"') {
+            if (*stream == '\\') {
+                ++stream;
+                switch(*stream) {
                 case '"':
                 case '\\':
-                    value.push_back(*text);
-                    ++text; --size;
+                    value.push_back(*stream);
+                    ++stream;
                     break;
                 case 'b':
                     value.push_back('\b');
-                    ++text; --size;
+                    ++stream;
                     break;
                 case 'f':
                     value.push_back('\f');
-                    ++text; --size;
+                    ++stream;
                     break;
                 case 'n':
                     value.push_back('\n');
-                    ++text; --size;
+                    ++stream;
                     break;
                 case 'r':
                     value.push_back('\r');
-                    ++text; --size;
+                    ++stream;
                     break;
                 case 't':
                     value.push_back('t');
-                    ++text; --size;
+                    ++stream;
                     break;
                 case 'u': {
-                    ++text; --size;
-                    if (size < 6) throw JsonParseException { text, size, exception_t::INCORRECT_ESCAPE };
+                    ++stream;
                     char val { 0 };
-                    auto newsize = size - 4;
-                    do {
-                        auto ch = *text;
+                    for(size_t index { 0 }; index < 4; ++index) {
+                        auto ch = *stream;
                         val *= 10;
                         if (ch >= '0' && ch <= '9') val += ch - '0';
                         else if (ch >= 'a' && ch <= 'f') val += 10 + ch - 'a';
                         else if (ch >= 'A' && ch <= 'F') val += 10 + ch - 'A';
-                        else throw JsonParseException { text, size, exception_t::INCORRECT_ESCAPE };
-                        ++text; --size;
-                    } while(size != newsize);
+                        else throw JsonParseException { stream, exception_t::INCORRECT_ESCAPE };
+                        ++stream;
+                    }
                     value.push_back(val);
                     break;
                 }
                 default:
-                    throw JsonParseException { text, size, exception_t::INCORRECT_ESCAPE };
+                    throw JsonParseException { stream, exception_t::INCORRECT_ESCAPE };
                     break;
                 }
 
             } else {
-                value.push_back(*text);
-                ++text; --size;
-                if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
+                value.push_back(*stream);
+                ++stream;
             }
         }
-        ++text; --size;
+        ++stream;
         return value;
     }
 
@@ -651,7 +697,6 @@ protected:
 
 public:
     constexpr Ref(const std::string &text) : obj { Value::Parse(text) } { }
-    constexpr Ref(const char *&text, size_t &size) : obj { Value::Parse(text, size) } { }
     constexpr Ref(Value *obj) : obj { obj } { }
     constexpr Ref();
     Ref(const Ref &) = delete;
@@ -899,12 +944,11 @@ public:
     constexpr const std::string GetStringCopy() const override { return value; }
 
     constexpr type GetType() const noexcept override { return type::String; }
-
-    static constexpr Value *Parse(const char *&text, size_t &size) {
-        auto value = ParseString(text, size);
+    
+    static constexpr Value *Parse(Stream &stream) {
+        auto value = ParseString(stream);
         return new String { std::move(value) };
     }
-
     // This may not be exact original value
     static constexpr void EscapeString(const std::string &original, std::string &newstr) {
         auto itr = std::begin(original);
@@ -1188,24 +1232,22 @@ public:
     constexpr type GetType() const noexcept override { return type::Array; }
 
 
-    static constexpr Value *Parse(const char *&text, size_t &size) {
-        if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
+    static constexpr Value *Parse(Stream &stream) {
         Array *array = new Array { };
-        SkipWS(text, size);
-        if (*text != ']') {
+        stream.SkipWS();
+        if (*stream != ']') {
             for(;;) {
-                auto value = Value::ParseInternal(text, size);
+                auto value = Value::Parse(stream);
                 array->values.emplace_back(value);
-                if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
-                if (*text == ']') break;
-                if (*text != ',') {
-                    throw JsonParseException { text, size, exception_t::INCORRECT_ARRAY_DELIMITER };
+                if (*stream == ']') break;
+                if (*stream != ',') {
+                    throw JsonParseException { stream, exception_t::INCORRECT_ARRAY_DELIMITER };
                 }
-                ++text; --size;
-                SkipWS(text, size);
+                ++stream;
+                stream.SkipWS();
             }
         }
-        ++text; --size;
+        ++stream;
         return array;
     }
 };
@@ -1407,37 +1449,36 @@ public:
 
     constexpr type GetType() const noexcept override { return type::Object; }
 
-    static constexpr void ParseMember(Object *obj, const char *&text, size_t &size) {
-        auto key = ParseString(text, size);
-        SkipWS(text, size);
-        if (*text != ':') throw JsonParseException(text, size, exception_t::INCORRECT_OBJECT_MEMBER_SEPARATOR);
-        ++text; --size;
-        auto value = Value::ParseInternal(text, size);
-        if (key.empty()) throw JsonParseException(text, size, exception_t::OBJECT_NULL_KEY);
+    static constexpr void ParseMember(Object *obj, Stream &stream) {
+        auto key = ParseString(stream);
+        stream.SkipWS();
+        if (*stream != ':') throw JsonParseException(stream, exception_t::INCORRECT_OBJECT_MEMBER_SEPARATOR);
+        ++stream;
+        auto value = Value::Parse(stream);
+        if (key.empty()) throw JsonParseException(stream, exception_t::OBJECT_NULL_KEY);
         auto valueitr = obj->atptr(key);
-        if (!valueitr->IsError()) throw JsonParseException(text, size, exception_t::OBJECT_DUPLICATE_KEY);
+        if (!valueitr->IsError()) throw JsonParseException(stream, exception_t::OBJECT_DUPLICATE_KEY);
         auto member = new Member {std::move(key), value};
         obj->values.emplace(member);
     }
 
-    static constexpr Value *Parse(const char *&text, size_t &size) {
-        SkipWS(text, size);
+    static constexpr Value *Parse(Stream &stream) {
+        stream.SkipWS();
         auto value = new Object { };
-        if (*text != '}') {
+        if (*stream != '}') {
             for(;;) {
-                if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
-                if (*text != '"') throw JsonParseException(text, size, exception_t::OBJECT_KEY_STRING_EXPECTED);
-                ++text; --size;
-                ParseMember(value, text, size);
-                if (*text == '}') break;
-                if (*text != ',') throw JsonParseException(text, size, exception_t::INCORRECT_OBJECT_DELIMITER);
-                ++text; --size;
-                SkipWS(text, size);
+                if (*stream != '"') throw JsonParseException(stream, exception_t::OBJECT_KEY_STRING_EXPECTED);
+                ++stream;
+                ParseMember(value, stream);
+                if (*stream == '}') break;
+                if (*stream != ',') throw JsonParseException(stream, exception_t::INCORRECT_OBJECT_DELIMITER);
+                ++stream;
+                stream.SkipWS();
                 // Allowing commma at the end
-                if (*text == '}') break;
+                if (*stream == '}') break;
             }
         }
-        ++text; --size;
+        ++stream;
         return value;
     }
 
@@ -1614,126 +1655,88 @@ public:
     constexpr size_t size() const override { return values.size(); }
 }; // class Object
 
-constexpr Value *Value::ParseIntegerOrFloat(const char *&text, size_t &size) {
-    if (!size) throw JsonParseException { text, size, exception_t::PREMATURE_JSON_TERMINATION };
-    auto itr = text;
-    auto end = text + size;
-    if (*itr == '-' || *itr == '+') ++itr;
-    if (itr == end) throw JsonParseException { itr, size, exception_t::BAD_NUMBER_FORMAT };
-    if (*itr < '0' || *itr > '9') throw JsonParseException { itr, size, exception_t::BAD_NUMBER_FORMAT };
-    ++itr;
+constexpr Value *Value::ParseIntegerOrFloat(Stream &stream) {
+    Stream temp { stream };
+    if (*temp == '-' || *temp == '+') ++temp;
+    if (*temp < '0' || *temp > '9') throw JsonParseException { temp, exception_t::BAD_NUMBER_FORMAT };
+    ++temp;
     // Find text, float, string or error
     bool is_float = false;
 
-    while(itr !=end) {
-        if (*itr == '.') {
+    while(temp.remaining_size()) {
+        if (*temp == '.') {
             is_float = true;
             break;
-        } else if (*itr < '0' || *itr > '9') break;
-        ++itr;
+        } else if (*temp < '0' || *temp > '9') break;
+        ++temp;
     };
 
     if (is_float) {
         double value { };
-        auto ret = std::from_chars(text, end, value);
-        size -= ret.ptr - text;
-        text = ret.ptr;
+        auto ret = std::from_chars(stream.curr(), stream.end(), value);
+        stream.UpdateCurr(ret.ptr);
         return new Float { value };
     } else {
         int value { };
-        auto ret = std::from_chars(text, end, value);
-        size -= ret.ptr - text;
-        text = ret.ptr;
+        auto ret = std::from_chars(stream.curr(), stream.end(), value);
+        stream.UpdateCurr(ret.ptr);
         return new Integer { value };
     }
 }
 
-// Constexpr makes it inline and avoid duplicate definitions warning
-constexpr Value *Value::ParseInternal(const char *&text, size_t &size) {
-    Value::SkipWS(text, size);
-    switch(*text) {
+constexpr Value *Value::Parse(Stream &stream) {
+    stream.SkipWS();
+    switch(*stream) {
     case BeginArray: {
-            ++text; --size;
-            auto ret = Array::Parse(text, size);
-            Value::SkipWS(text, size);
+            ++stream;
+            auto ret = Array::Parse(stream);
+            stream.SkipWS();
             return ret;
         }
 
     case BeginObject: {
-            ++text; --size;
-            auto ret = Object::Parse(text, size);
-            Value::SkipWS(text, size);
+            ++stream;
+            auto ret = Object::Parse(stream);
+            stream.SkipWS();
             return ret;
         }
 
-    case '-': {
-            auto ret = Value::ParseIntegerOrFloat(text, size);
-            Value::SkipWS(text, size);
-            return ret;
-        }
-    case '+': {
-            auto ret = Value::ParseIntegerOrFloat(text, size);
-            Value::SkipWS(text, size);
-            return ret;
-        }
+    case '-': case '+':
     case '0': case '1': case '2': case '3': case '4':
     case '5': case '6': case '7': case '8': case '9': {
-            auto ret = Value::ParseIntegerOrFloat(text, size);
-            Value::SkipWS(text, size);
+            auto ret = Value::ParseIntegerOrFloat(stream);
+            stream.SkipWS();
             return ret;
         }
     case '"': {
-            ++text; --size;
-            auto ret = String::Parse(text, size);
-            Value::SkipWS(text, size);
+            ++stream;
+            auto ret = String::Parse(stream);
+            stream.SkipWS();
             return ret;
         }
     case 'f':    
     case 'F': {
-            if (size < 5) throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD_OR_PREMATURE_TERMINATION };
-            ++text;
-            if (*text != 'a' && *text != 'A') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            ++text;
-            if (*text != 'l' && *text != 'L') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            ++text;
-            if (*text != 's' && *text != 'S') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            ++text;
-            if (*text != 'e' && *text != 'E') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            ++text;
-            size -= 5;
-            Value::SkipWS(text, size);
+            ++stream;
+            stream.Match("alse");
+            stream.SkipWS();
             return new Bool { false };
         }
     case 't':
     case 'T': {
-            if (size < 4) throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD_OR_PREMATURE_TERMINATION };
-            ++text;
-            if (*text != 'r' && *text != 'R') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            ++text;
-            if (*text != 'u' && *text != 'U') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            ++text;
-            if (*text != 'e' && *text != 'E') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            ++text;
-            size -= 4;
-            Value::SkipWS(text, size);
+            ++stream;
+            stream.Match("rue");
+            stream.SkipWS();
             return new Bool { true };
         }
     case 'n':    
     case 'N': {
-            if (size < 4) throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD_OR_PREMATURE_TERMINATION };
-            ++text;
-            if (*text != 'u' && *text != 'U') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            ++text;
-            if (*text != 'l' && *text != 'L') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            ++text;
-            if (*text != 'l' && *text != 'L') throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
-            ++text;
-            size -= 4;
-            Value::SkipWS(text, size);
+            ++stream;
+            stream.Match("ull");
+            stream.SkipWS();
             return new Null { };
         }
     default:
-        throw JsonParseException { text, size, exception_t::UNKNOWN_KEYWORD };
+        throw JsonParseException { stream, exception_t::UNKNOWN_KEYWORD };
     }
 }
 
@@ -1783,7 +1786,6 @@ constexpr Value &Ref::QueryInternal(const std::string &text, const auto &delimit
 
 constexpr Ref::Ref() : obj { new Object { } } { }
 
-constexpr inline auto Parse(const char *&text, size_t &size) { return Ref { text, size }; }
 constexpr inline auto Parse(const std::string &text) { return Ref { text }; }
 
 } // namespace rohit::json
