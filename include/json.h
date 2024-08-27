@@ -19,6 +19,7 @@
 #pragma once
 #include <exception>
 #include <string>
+#include <cstring>
 #include <string_view>
 #include <vector>
 #include <memory>
@@ -257,6 +258,7 @@ class Stream {
     const char *_curr;
 
 public:
+    constexpr Stream(const char* _begin) : _begin { _begin }, _end { _begin + std::strlen(_begin) }, _curr { _begin } { }
     constexpr Stream(const char *_begin, const char *_end) : _begin { _begin }, _end { _end }, _curr { _begin } { }
     constexpr Stream(const char *_begin, size_t size) : _begin { _begin }, _end { _begin + size }, _curr { _begin } { }
     constexpr Stream(const std::string &text) : _begin { text.c_str() }, _end { text.c_str() + text.size() }, _curr { _begin } { }
@@ -700,6 +702,7 @@ protected:
 
 public:
     constexpr Ref(const std::string &text) : obj { Value::Parse(text) } { }
+    constexpr Ref(Stream &text) : obj { Value::Parse(text) } { }
     constexpr Ref(Value *obj) : obj { obj } { }
     constexpr Ref();
     Ref(const Ref &) = delete;
@@ -1267,8 +1270,8 @@ public:
     constexpr Member(std::string &&key, std::unique_ptr<Value> &&value) : key { std::move(key) }, value { std::move(value) } { }
     constexpr Member(std::string &key, Value *value) : key { key }, value { value } { }
     constexpr Member(std::string &&key, Value *value) : key { std::move(key) }, value { value } { }
-    constexpr Member(const std::string &key) : key { key }, value { } { }
-    constexpr Member(std::string &&key) : key { std::move(key) }, value { } { }
+    constexpr Member(const std::string &key) : key { key }, value { nullptr } { }
+    constexpr Member(std::string &&key) : key { std::move(key) }, value { nullptr } { }
 
     constexpr bool operator==(const Value& other) const override { 
         auto rhs = dynamic_cast<const Member *>(&other);
@@ -1491,37 +1494,37 @@ public:
 
     constexpr void insert(std::string key, const bool value) override {
         auto json = new Bool { value };
-        auto member = new Member(key, json);
+        auto member = new Member { key, json };
         values.emplace(member);
     }
 
     constexpr void insert(std::string key, const int value) override {
         auto json = new Integer { value };
-        auto member = new Member(key, json);
+        auto member = new Member { key, json };
         values.emplace(member);
 
     }
 
     constexpr void insert(std::string key, const double value) override {
         auto json = new Float { value };
-        auto member = new Member(key, json);
+        auto member = new Member { key, json };
         values.emplace(member);
     }
 
     constexpr void insert(std::string key, const std::string &value) override {
         auto json = new String { value };
-        auto member = new Member(key, json);
+        auto member = new Member { key, json };
         values.emplace(member);
     }
 
     constexpr void insert(std::string key, std::string &&value) override {
         auto json = new String { std::move(value) };
-        auto member = new Member(key, json);
+        auto member = new Member { key, json };
         values.emplace(member);
     }
 
     constexpr void insert(std::string key, Value *json) override {
-        auto member = new Member(key, json);
+        auto member = new Member { key, json };
         values.emplace(member);
     }
 
@@ -1794,5 +1797,9 @@ constexpr Value &Ref::QueryInternal(const std::string &text, const auto &delimit
 constexpr Ref::Ref() : obj { new Object { } } { }
 
 constexpr inline auto Parse(const std::string &text) { return Ref { text }; }
+constexpr inline auto Parse(const char *text) { 
+    Stream strtext { text };
+    return Ref { strtext };
+}
 
 } // namespace rohit::json
