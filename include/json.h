@@ -327,7 +327,7 @@ public:
         std::string errstr { "JSON Parser failed at: " };
 
         if (stream.size() >= 40 ){
-            Stream initial {stream.begin(), stream.begin() + 16};
+            std::string_view initial {stream.begin(), 16};
             for(auto &current_ch: initial) {
                 if (current_ch >= 32 /* &&  current_ch <= 127 */) {
                     errstr.push_back(current_ch);
@@ -335,14 +335,14 @@ public:
             }
             errstr += " ... ";
 
-            Stream second {stream.curr() - 16, stream.curr()};
+            std::string_view second {stream.curr() - 16, 16};
             for(auto &current_ch: initial) {
                 if (current_ch >= 32 /* &&  current_ch <= 127 */) {
                     errstr.push_back(current_ch);
                 } else errstr.push_back('#');
             }
         } else {
-            Stream initial {stream.begin(), stream.curr()};
+            std::string_view initial {stream.begin(), stream.size()};
             for(auto &current_ch: initial) {
                 if (current_ch >= 32 /* &&  current_ch <= 127 */) {
                     errstr.push_back(current_ch);
@@ -354,7 +354,7 @@ public:
         errstr += rohit::json::to_string(value);
         errstr += " --| ";
 
-        Stream last {stream.curr(), std::min(stream.curr() + 16, stream.end())};
+        std::string_view last {stream.curr(), std::min<size_t>(16, stream.remaining_size())};
         for(auto &current_ch: last) {
             if (current_ch >= 32 /* &&  current_ch <= 127 */) {
                 errstr.push_back(current_ch);
