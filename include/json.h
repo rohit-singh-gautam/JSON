@@ -574,13 +574,15 @@ protected:
 
     static constexpr std::string ParseString(Stream &stream) {
         std::string value { };
-        while(*stream != '"') {
-            if (*stream == '\\') {
+        auto ch = *stream;
+        while (ch != '"') {
+            if (ch == '\\') {
                 ++stream;
-                switch(*stream) {
+                ch = *stream;;
+                switch(ch) {
                 case '"':
                 case '\\':
-                    value.push_back(*stream);
+                    value.push_back(ch);
                     ++stream;
                     break;
                 case 'b':
@@ -607,7 +609,7 @@ protected:
                     ++stream;
                     char val { 0 };
                     for(size_t index { 0 }; index < 4; ++index) {
-                        auto ch = *stream;
+                        ch = *stream;
                         val *= 10;
                         if (ch >= '0' && ch <= '9') val += ch - '0';
                         else if (ch >= 'a' && ch <= 'f') val += 10 + ch - 'a';
@@ -627,6 +629,7 @@ protected:
                 value.push_back(*stream);
                 ++stream;
             }
+            ch = *stream;
         }
         ++stream;
         return value;
@@ -1239,9 +1242,10 @@ public:
             for(;;) {
                 auto value = Value::Parse(stream);
                 array->values.emplace_back(value);
-                if (*stream == ']') break;
-                if (*stream != ',') {
-                    throw JsonParseException { stream, exception_t::INCORRECT_ARRAY_DELIMITER };
+                auto ch = *stream;
+                if (ch == ']') break;
+                if (ch != ',') {
+                    throw JsonParseException {stream, exception_t::INCORRECT_ARRAY_DELIMITER };
                 }
                 ++stream;
                 stream.SkipWS();
@@ -1465,15 +1469,18 @@ public:
     static constexpr Value *Parse(Stream &stream) {
         stream.SkipWS();
         auto value = new Object { };
-        if (*stream != '}') {
+        auto ch = *stream;
+        if (ch != '}') {
             for(;;) {
-                if (*stream != '"') throw JsonParseException(stream, exception_t::OBJECT_KEY_STRING_EXPECTED);
-                ++stream;
+                if (ch != '"') throw JsonParseException(stream, exception_t::OBJECT_KEY_STRING_EXPECTED);
+                ++stream; ch = *stream;
                 ParseMember(value, stream);
+                ch = *stream;
                 if (*stream == '}') break;
                 if (*stream != ',') throw JsonParseException(stream, exception_t::INCORRECT_OBJECT_DELIMITER);
                 ++stream;
                 stream.SkipWS();
+                ch = *stream;
                 // Allowing commma at the end
                 if (*stream == '}') break;
             }
