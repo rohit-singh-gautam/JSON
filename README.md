@@ -12,6 +12,12 @@ The key features of the JSON Library include:
 1. **Future-Ready Constexpr Support**: Attempts to use `constexpr` with the expectation that it will be fully supported as compilers evolve.
 
 ## Usage
+IMPORTANT: All copy constructor from json objecct is deleted for performance reason. Hence only reference can be retrieved except Parse function. Value must not be referenced.
+```cpp
+    auto &child = parentjson["child"]; // This is a reference
+    auto value = child.GetInt(); // If reference is taken it will result into exception.
+```
+
 ### Creation
 The initial step involves creating a JSON object, which can be accomplished through parsing.
 ```cpp
@@ -72,8 +78,8 @@ auto value = json["Key2"]["key19"].GetInt();
 This exception occurs because `"key20"` and `"Key2"` are not present in the JSON structure.
 
 ```cpp
-auto value = json["Key2"];
-auto value = json["Key2"]["key19"];
+auto &value = json["Key2"];
+auto &value = json["Key2"]["key19"];
 // value.IsError() == true
 ```
 
