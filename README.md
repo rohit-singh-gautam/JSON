@@ -146,6 +146,9 @@ For same example object can be iterated as:
     auto &key = member.GetKey();
     auto &value = member.GetValue();
     // You can use key and value here.
+    // key is of type string.
+    // value is of type rohit::json::Value
+    // member is of type rohit::json::Value
   }
 ```
 Object will always return member that is pair of Key and Value.
@@ -181,7 +184,7 @@ See comma at the end of 6 and end of true. This is not allowed as per RFC, this 
 As per [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259) following data types are implemented:
 1. Null,
 1. Boolean (True and False),
-1. Number - This is divided Integer and Float. RFC requires only Number.
+1. Number - This is splitted Integer and Float. RFC requires only Number.
     1. Integer
     1. Float
 1. String
@@ -190,6 +193,9 @@ As per [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259) following data types a
 1. Member - This is object member.
 
 Additional type Error is defined to represent object not found in Array or Object.
+
+All data types are derived from rohit::json::Value.
+
 
 ## IMPORTANT
 1. Once pointer is passed to Array or Object memory is manager by Array or Object. It will be freed on exit, in case this memory if freed manually double free will occur.

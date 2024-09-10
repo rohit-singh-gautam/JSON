@@ -258,9 +258,9 @@ class Stream {
     const char *_curr;
 
 public:
-    constexpr Stream(const char* _begin) : _begin { _begin }, _end { _begin + std::strlen(_begin) }, _curr { _begin } { }
-    constexpr Stream(const char *_begin, const char *_end) : _begin { _begin }, _end { _end }, _curr { _begin } { }
-    constexpr Stream(const char *_begin, size_t size) : _begin { _begin }, _end { _begin + size }, _curr { _begin } { }
+    constexpr Stream(const auto *_begin) : _begin { reinterpret_cast<const char *>(_begin) }, _end { reinterpret_cast<const char *>(_begin) + std::strlen(reinterpret_cast<const char *>(_begin)) }, _curr { reinterpret_cast<const char *>(_begin) } { }
+    constexpr Stream(const auto *_begin, const auto *_end) : _begin { reinterpret_cast<const char *>(_begin) }, _end { reinterpret_cast<const char *>(_end) }, _curr { reinterpret_cast<const char *>(_begin) } { }
+    constexpr Stream(const auto *_begin, size_t size) : _begin { reinterpret_cast<const char *>(_begin) }, _end { reinterpret_cast<const char *>(_begin) + size }, _curr { reinterpret_cast<const char *>(_begin) } { }
     constexpr Stream(const std::string &text) : _begin { text.c_str() }, _end { text.c_str() + text.size() }, _curr { _begin } { }
     constexpr Stream(Stream &&stream) : _begin { stream._begin }, _end { stream._end }, _curr { stream._curr } {
         _begin = _end = _curr = nullptr;
@@ -268,7 +268,7 @@ public:
     Stream(const Stream &stream) : _begin { stream._begin }, _end { stream._end }, _curr { stream._curr } { }
     Stream &operator=(const Stream &stream) { _curr = stream._curr; return *this; }
 
-    constexpr auto operator*() const { 
+    constexpr auto operator*() const {
         #pragma GCC diagnostic ignored "-Wanalyzer-malloc-leak"
         if (_curr >= _end) throw StreamOverflowException { };
         return *_curr;
