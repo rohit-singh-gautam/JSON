@@ -23,6 +23,7 @@
 #include <sstream>
 #include <exception>
 
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wanalyzer-malloc-leak"
 const std::vector<std::string> samplejsonlist {
     "{\n"
@@ -48,6 +49,7 @@ const std::vector<std::string> samplejsonlist {
     "    }\n"
     "}\n",
 };
+#pragma GCC diagnostic pop
 
 std::string GetFromFile(const std::filesystem::path &path) {
     if (!std::filesystem::is_regular_file(path)) {

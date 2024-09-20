@@ -25,19 +25,11 @@
 #include <memory>
 #include <stdexcept>
 #include <set>
-#include <map>
+#include <unordered_map>
 #include <format>
 #include <charconv>
 
 namespace rohit::json {
-
-// Change this to unordered_map in case unordered_map is require.
-// unordered_map results int to memory leak error with gcc -fanalyzer
-template <typename KeyT, typename ValueT>
-using map = std::map<KeyT, ValueT>;
-
-template <typename KeyT>
-using vector = std::vector<KeyT>;
 
 struct write_format {
     bool newline_before_braces_open;
@@ -269,8 +261,10 @@ public:
     Stream &operator=(const Stream &stream) { _curr = stream._curr; return *this; }
 
     constexpr auto operator*() const {
+        #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wanalyzer-malloc-leak"
         if (_curr >= _end) throw StreamOverflowException { };
+        #pragma GCC diagnostic pop
         return *_curr;
     }
     constexpr Stream &operator++() {
@@ -400,8 +394,8 @@ public:
 };
 
 enum class type {
-    Bool, // True and False will be under bool, this will allow us to change it directly
     Null,
+    Bool, // True and False will be under bool, this will allow us to change it directly
     NumberInt,
     NumberFloat,
     String,
@@ -492,19 +486,60 @@ protected:
 public:
     virtual constexpr void write(std::string &, write_format_data &) const = 0;
 
+    /// @brief Return type of value. It can be one of Null, Bool, NumberInt, NumberFloat, String, Member, member, Array, Object or Error.
+    /// @return Value type
     virtual constexpr type GetType() const noexcept = 0;
+
+    /// @brief Check if value is type::Null.
+    /// @return true if type is type::Null else false
     constexpr bool IsNull() const { return GetType() == type::Null; }
+
+    /// @brief Check if value is type::Error.
+    /// @return true if type is type::Error else false
     constexpr bool IsError() const { return GetType() == type::Error; }
+
+    /// @brief Check if value is type::Bool.
+    /// @return true if type is type::Bool else false
     constexpr bool IsBool() const { return GetType() == type::Bool; }
+
+    /// @brief Check if value is type::NumberInt.
+    /// @return true if type is type::NumberInt else false
     constexpr bool IsInteger() const { return GetType() == type::NumberInt; }
+
+    /// @brief Check if value is type::NumberFloat.
+    /// @return true if type is type::NumberFloat else false
     constexpr bool IsFloat() const { return GetType() == type::NumberFloat; }
+
+    /// @brief Check if value is type::String.
+    /// @return true if type is type::String else false
     constexpr bool IsString() const { return GetType() == type::String; }
+
+    /// @brief Check if value is type::Member.
+    /// @return true if type is type::Member else false
     constexpr bool IsMember() const { return GetType() == type::Member; }
+
+    /// @brief Check if value is type::Array.
+    /// @return true if type is type::Array else false
     constexpr bool IsArray() const { return GetType() == type::Array; }
+
+    /// @brief Check if value is type::Object.
+    /// @return true if type is type::Object else false
     constexpr bool IsObject() const { return GetType() == type::Object; }
 
+
+    /// @brief Get value at given index. This will work only for array or object.
+    /// @param  index Position at which values is stored.
+    /// @return pointer to value if found or pointer to value of type error.
     virtual constexpr Value *atptr(size_t) const { throw NotArraryOrMapException { }; }
+
+    /// @brief Get value in map at given key, for array it tries to convert it to integer and return values at that index. This will work only for array or object.
+    /// @param  key Key for values.
+    /// @return pointer to value if found or pointer to value of type error.
     virtual constexpr Value *atptr(const std::string &) const { throw NotArraryOrMapException { }; }
+
+    /// @brief Deep comparison of two values.
+    /// @param other Right hand side value
+    /// @return true if both values are same.
     virtual constexpr bool operator==(const Value& other) const = 0;
 
     virtual constexpr bool &GetBool() { throw NotBoolException { }; }
@@ -524,10 +559,22 @@ public:
     virtual constexpr void push_back(std::string &&) { throw NotArrayException { }; }
     virtual constexpr void push_back(Value *) { throw NotArrayException { }; }
     virtual constexpr void push_back(std::unique_ptr<Value> &&) { throw NotArrayException { }; }
-    virtual constexpr vector<int> GetIntVector(bool) { throw NotArraryOrMapException { }; }
-    virtual constexpr vector<bool> GetBoolVector(bool) { throw NotArraryOrMapException { }; }
-    virtual constexpr vector<float> GetFloatVector(bool) { throw NotArraryOrMapException { }; }
-    virtual constexpr vector<std::string> GetStringVector(bool) { throw NotArraryOrMapException { }; }
+    /// @brief Generates int vector, for object it list of values.
+    /// @param  ignore_exceptions ignores any exception, must be true if other types of data has to be ignored.
+    /// @return Vector of int
+    virtual constexpr std::vector<int> GetIntVector(bool) { throw NotArraryOrMapException { }; }
+    /// @brief Generates bool vector, for object it list of values.
+    /// @param  ignore_exceptions ignores any exception, must be true if other types of data has to be ignored.
+    /// @return Vector of bool
+    virtual constexpr std::vector<bool> GetBoolVector(bool) { throw NotArraryOrMapException { }; }
+    /// @brief Generates float vector, for object it list of values.
+    /// @param  ignore_exceptions ignores any exception, must be true if other types of data has to be ignored.
+    /// @return Vector of float
+    virtual constexpr std::vector<float> GetFloatVector(bool) { throw NotArraryOrMapException { }; }
+    /// @brief Generates string vector, for object it list of values.
+    /// @param  ignore_exceptions ignores any exception, must be true if other types of data has to be ignored.
+    /// @return Vector of string
+    virtual constexpr std::vector<std::string> GetStringVector(bool) { throw NotArraryOrMapException { }; }
     virtual constexpr void insert(std::string, const bool) { throw NotObjectException { }; }
     virtual constexpr void insert(std::string, const int)  { throw NotObjectException { }; }
     virtual constexpr void insert(std::string, const double)  { throw NotObjectException { }; }
@@ -535,10 +582,10 @@ public:
     virtual constexpr void insert(std::string, std::string &&)  { throw NotObjectException { }; }
     virtual constexpr void insert(std::string, Value *)  { throw NotObjectException { }; }
     virtual constexpr void insert(std::string, std::unique_ptr<Value> &&) { throw NotObjectException { }; }
-    virtual constexpr map<std::string, int> GetIntMap(bool) { throw NotObjectException { }; }
-    virtual constexpr map<std::string, bool> GetBoolMap(bool) { throw NotObjectException { }; }
-    virtual constexpr map<std::string, float> GetFloatMap(bool) { throw NotObjectException { }; }
-    virtual constexpr map<std::string, std::string> GetStringMap(bool) { throw NotObjectException { }; }
+    virtual constexpr std::unordered_map<std::string, int> GetIntMap(bool) { throw NotObjectException { }; }
+    virtual constexpr std::unordered_map<std::string, bool> GetBoolMap(bool) { throw NotObjectException { }; }
+    virtual constexpr std::unordered_map<std::string, float> GetFloatMap(bool) { throw NotObjectException { }; }
+    virtual constexpr std::unordered_map<std::string, std::string> GetStringMap(bool) { throw NotObjectException { }; }
 
     virtual constexpr size_t empty() const { throw NotArraryOrMapException(); }
     virtual constexpr size_t size() const { throw NotArraryOrMapException(); }
@@ -576,6 +623,7 @@ protected:
     static constexpr Value *ParseIntegerOrFloat(Stream &stream);
 
     static constexpr std::string ParseString(Stream &stream) {
+        #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wanalyzer-use-of-uninitialized-value"
         std::string value { };
         auto ch = *stream;
@@ -635,6 +683,7 @@ protected:
             }
             ch = *stream;
         }
+        #pragma GCC diagnostic pop
         ++stream;
         return value;
     }
@@ -747,10 +796,10 @@ public:
     constexpr inline void push_back(std::string &&value) { return obj->push_back(std::move(value)); }
     constexpr inline void push_back(Value *value) { return obj->push_back(value); }
     constexpr inline void push_back(std::unique_ptr<Value> &&value) { return obj->push_back(std::move(value)); }
-    constexpr inline vector<int> GetIntVector(bool ignore_exceptions) { return obj->GetIntVector(ignore_exceptions); }
-    constexpr inline vector<bool> GetBoolVector(bool ignore_exceptions) { return obj->GetBoolVector(ignore_exceptions); }
-    constexpr inline vector<float> GetFloatVector(bool ignore_exceptions) { return obj->GetFloatVector(ignore_exceptions); }
-    constexpr inline vector<std::string> GetStringVector(bool ignore_exceptions) { return obj->GetStringVector(ignore_exceptions); }
+    constexpr inline std::vector<int> GetIntVector(bool ignore_exceptions) { return obj->GetIntVector(ignore_exceptions); }
+    constexpr inline std::vector<bool> GetBoolVector(bool ignore_exceptions) { return obj->GetBoolVector(ignore_exceptions); }
+    constexpr inline std::vector<float> GetFloatVector(bool ignore_exceptions) { return obj->GetFloatVector(ignore_exceptions); }
+    constexpr inline std::vector<std::string> GetStringVector(bool ignore_exceptions) { return obj->GetStringVector(ignore_exceptions); }
     constexpr inline void insert(std::string key, const bool value) { return obj->insert(key, value); }
     constexpr inline void insert(std::string key, const int value) { return obj->insert(key, value); }
     constexpr inline void insert(std::string key, const double value) { return obj->insert(key, value); }
@@ -758,10 +807,10 @@ public:
     constexpr inline void insert(std::string key, std::string &&value) { return obj->insert(key, std::move(value)); }
     constexpr inline void insert(std::string key, Value *value) { return obj->insert(key, value); }
     constexpr inline void insert(std::string key, std::unique_ptr<Value> &&value) { return obj->insert(key, std::move(value)); }
-    constexpr inline map<std::string, int> GetIntMap(bool ignore_exceptions) { return obj->GetIntMap(ignore_exceptions); }
-    constexpr inline map<std::string, bool> GetBoolMap(bool ignore_exceptions) { return obj->GetBoolMap(ignore_exceptions); }
-    constexpr inline map<std::string, float> GetFloatMap(bool ignore_exceptions) { return obj->GetFloatMap(ignore_exceptions); }
-    constexpr inline map<std::string, std::string> GetStringMap(bool ignore_exceptions) { return obj->GetStringMap(ignore_exceptions); }
+    constexpr inline std::unordered_map<std::string, int> GetIntMap(bool ignore_exceptions) { return obj->GetIntMap(ignore_exceptions); }
+    constexpr inline std::unordered_map<std::string, bool> GetBoolMap(bool ignore_exceptions) { return obj->GetBoolMap(ignore_exceptions); }
+    constexpr inline std::unordered_map<std::string, float> GetFloatMap(bool ignore_exceptions) { return obj->GetFloatMap(ignore_exceptions); }
+    constexpr inline std::unordered_map<std::string, std::string> GetStringMap(bool ignore_exceptions) { return obj->GetStringMap(ignore_exceptions); }
 
     constexpr inline size_t empty() const { return obj->empty(); }
     constexpr inline size_t size() const { return obj->size(); }
@@ -1006,10 +1055,10 @@ public:
 };
 
 class ArrayIterator : public Iterator_Internal {
-    vector<std::unique_ptr<Value>>::iterator itr;
+    std::vector<std::unique_ptr<Value>>::iterator itr;
 
 public:
-    ArrayIterator(vector<std::unique_ptr<Value>>::iterator &&itr) : itr { std::move(itr) } { }
+    ArrayIterator(std::vector<std::unique_ptr<Value>>::iterator &&itr) : itr { std::move(itr) } { }
     bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ArrayIterator *>(other)->itr; }
     bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ArrayIterator *>(other)->itr; }
     Value &operator*() override { return **itr; }
@@ -1018,10 +1067,10 @@ public:
 };
 
 class ArrayConstIterator : public Iterator_Internal {
-    vector<std::unique_ptr<Value>>::const_iterator itr;
+    std::vector<std::unique_ptr<Value>>::const_iterator itr;
 
 public:
-    ArrayConstIterator(vector<std::unique_ptr<Value>>::const_iterator &&itr) : itr { std::move(itr) } { }
+    ArrayConstIterator(std::vector<std::unique_ptr<Value>>::const_iterator &&itr) : itr { std::move(itr) } { }
     bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ArrayConstIterator *>(other)->itr; }
     bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ArrayConstIterator *>(other)->itr; }
     Value &operator*() override { return **itr; }
@@ -1031,10 +1080,10 @@ public:
 
 
 class ArrayReverseIterator : public Iterator_Internal {
-    vector<std::unique_ptr<Value>>::reverse_iterator itr;
+    std::vector<std::unique_ptr<Value>>::reverse_iterator itr;
 
 public:
-    ArrayReverseIterator(vector<std::unique_ptr<Value>>::reverse_iterator &&itr) : itr { std::move(itr) } { }
+    ArrayReverseIterator(std::vector<std::unique_ptr<Value>>::reverse_iterator &&itr) : itr { std::move(itr) } { }
     bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ArrayReverseIterator *>(other)->itr; }
     bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ArrayReverseIterator *>(other)->itr; }
     Value &operator*() override { return **itr; }
@@ -1043,10 +1092,10 @@ public:
 };
 
 class ArrayConstReverseIterator : public Iterator_Internal {
-    vector<std::unique_ptr<Value>>::const_reverse_iterator itr;
+    std::vector<std::unique_ptr<Value>>::const_reverse_iterator itr;
 
 public:
-    ArrayConstReverseIterator(vector<std::unique_ptr<Value>>::const_reverse_iterator &&itr) : itr { std::move(itr) } { }
+    ArrayConstReverseIterator(std::vector<std::unique_ptr<Value>>::const_reverse_iterator &&itr) : itr { std::move(itr) } { }
     bool Equal(const Iterator_Internal *other) override { return itr == dynamic_cast<const ArrayConstReverseIterator *>(other)->itr; }
     bool NotEqual(const Iterator_Internal *other) override { return itr != dynamic_cast<const ArrayConstReverseIterator *>(other)->itr; }
     Value &operator*() override { return **itr; }
@@ -1056,7 +1105,7 @@ public:
 
 
 class Array : public Value {
-    vector<std::unique_ptr<Value>> values { };
+    std::vector<std::unique_ptr<Value>> values { };
 
 public:
     constexpr bool operator==(const Value& other) const override { 
@@ -1170,8 +1219,8 @@ public:
     /*! This will return all the integer, it will try to convert it to integer for string and bool.
      * if any of fails to retrieve it will throw exception if exclude_non_int is set otherwise it will thorw exception
      */
-    constexpr vector<int> GetIntVector(bool exclude_non_int = true) override {
-        vector<int> ret { };
+    constexpr std::vector<int> GetIntVector(bool exclude_non_int = true) override {
+        std::vector<int> ret { };
         if (exclude_non_int) {
             for(auto &value: values) {
                 try {
@@ -1186,8 +1235,8 @@ public:
         return ret;
     }
 
-    constexpr vector<bool> GetBoolVector(bool exclude_non_bool = true) override {
-        vector<bool> ret { };
+    constexpr std::vector<bool> GetBoolVector(bool exclude_non_bool = true) override {
+        std::vector<bool> ret { };
         if (exclude_non_bool) {
             for(auto &value: values) {
                 try {
@@ -1202,8 +1251,8 @@ public:
         return ret;
     }
 
-    constexpr vector<float> GetFloatVector(bool exclude_non_float = true) override {
-        vector<float> ret { };
+    constexpr std::vector<float> GetFloatVector(bool exclude_non_float = true) override {
+        std::vector<float> ret { };
         if (exclude_non_float) {
             for(auto &value: values) {
                 try {
@@ -1218,8 +1267,8 @@ public:
         return ret;
     }
 
-    constexpr vector<std::string> GetStringVector(bool exclude_non_string = true) override {
-        vector<std::string> ret { };
+    constexpr std::vector<std::string> GetStringVector(bool exclude_non_string = true) override {
+        std::vector<std::string> ret { };
         if (exclude_non_string) {
             for(auto &value: values) {
                 try {
@@ -1241,6 +1290,7 @@ public:
 
 
     static constexpr Value *Parse(Stream &stream) {
+        #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wanalyzer-possible-null-dereference"
         Array *array = new Array { };
         stream.SkipWS();
@@ -1257,6 +1307,7 @@ public:
                 stream.SkipWS();
             }
         }
+        #pragma GCC diagnostic pop
         ++stream;
         return array;
     }
@@ -1273,8 +1324,10 @@ public:
     constexpr Member(std::string &&key, std::unique_ptr<Value> &&value) : key { std::move(key) }, value { std::move(value) } { }
     constexpr Member(std::string &key, Value *value) : key { key }, value { value } { }
     constexpr Member(std::string &&key, Value *value) : key { std::move(key) }, value { value } { }
+    #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wanalyzer-possible-null-dereference"
     constexpr Member(const std::string &key) : key { key }, value { nullptr } { }
+    #pragma GCC diagnostic pop
     constexpr Member(std::string &&key) : key { std::move(key) }, value { nullptr } { }
 
     constexpr bool operator==(const Value& other) const override { 
@@ -1537,8 +1590,8 @@ public:
         values.emplace(member);
     }
 
-    constexpr vector<int> GetIntVector(bool exclude_non_int = true) override {
-        vector<int> ret { };
+    constexpr std::vector<int> GetIntVector(bool exclude_non_int = true) override {
+        std::vector<int> ret { };
         if (exclude_non_int) {
             for(auto &value: *this) {
                 try {
@@ -1553,8 +1606,8 @@ public:
         return ret;
     }
 
-    constexpr vector<bool> GetBoolVector(bool exclude_non_bool = true) override {
-        vector<bool> ret { };
+    constexpr std::vector<bool> GetBoolVector(bool exclude_non_bool = true) override {
+        std::vector<bool> ret { };
         if (exclude_non_bool) {
             for(auto &value: *this) {
                 try {
@@ -1569,8 +1622,8 @@ public:
         return ret;
     }
 
-    constexpr vector<float> GetFloatVector(bool exclude_non_float = true) override {
-        vector<float> ret { };
+    constexpr std::vector<float> GetFloatVector(bool exclude_non_float = true) override {
+        std::vector<float> ret { };
         if (exclude_non_float) {
             for(auto &value: *this) {
                 try {
@@ -1585,8 +1638,8 @@ public:
         return ret;
     }
 
-    constexpr vector<std::string> GetStringVector(bool exclude_non_string = true) override {
-        vector<std::string> ret { };
+    constexpr std::vector<std::string> GetStringVector(bool exclude_non_string = true) override {
+        std::vector<std::string> ret { };
         if (exclude_non_string) {
             for(auto &value: *this) {
                 try {
@@ -1601,8 +1654,8 @@ public:
         return ret;
     }
 
-    constexpr map<std::string, int> GetIntMap(bool exclude_non_int = true) override {
-        map<std::string, int> ret { };
+    constexpr std::unordered_map<std::string, int> GetIntMap(bool exclude_non_int = true) override {
+        std::unordered_map<std::string, int> ret { };
         if (exclude_non_int) {
             for(auto &value: *this) {
                 try {
@@ -1617,8 +1670,8 @@ public:
         return ret;
     }
 
-    constexpr map<std::string, bool> GetBoolMap(bool exclude_non_bool = true) override {
-        map<std::string, bool> ret { };
+    constexpr std::unordered_map<std::string, bool> GetBoolMap(bool exclude_non_bool = true) override {
+        std::unordered_map<std::string, bool> ret { };
         if (exclude_non_bool) {
             for(auto &value: *this) {
                 try {
@@ -1633,8 +1686,8 @@ public:
         return ret;
     }
 
-    constexpr map<std::string, float> GetFloatMap(bool exclude_non_float = true) override {
-        map<std::string, float> ret { };
+    constexpr std::unordered_map<std::string, float> GetFloatMap(bool exclude_non_float = true) override {
+        std::unordered_map<std::string, float> ret { };
         if (exclude_non_float) {
             for(auto &value: *this) {
                 try {
@@ -1649,8 +1702,8 @@ public:
         return ret;
     }
 
-    constexpr map<std::string, std::string> GetStringMap(bool exclude_non_string = true) override {
-        map<std::string, std::string> ret { };
+    constexpr std::unordered_map<std::string, std::string> GetStringMap(bool exclude_non_string = true) override {
+        std::unordered_map<std::string, std::string> ret { };
         if (exclude_non_string) {
             for(auto &value: *this) {
                 try {
