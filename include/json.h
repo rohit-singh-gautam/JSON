@@ -1859,4 +1859,9 @@ constexpr inline auto Parse(const char *text) {
     return Ref { strtext };
 }
 
+constexpr inline auto Parse(const auto *begin, const auto *end) {
+    Stream strtext { begin, end };
+    return Ref { strtext };
+}
+
 } // namespace rohit::json
