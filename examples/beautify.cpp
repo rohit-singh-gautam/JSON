@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
     }
 
     auto original_text = ReadStringFromFile(argv[1]);
-    auto json = rohit::json::Ref(original_text);
+    auto json = rohit::json::Parse(original_text);
     auto beautified_text = json.write(rohit::json::format::beautify);
 
     if (argc == 3) {

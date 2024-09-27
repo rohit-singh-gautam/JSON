@@ -613,12 +613,6 @@ public:
     constexpr auto &at(size_t index) const { return *atptr(index); }
     constexpr auto &at(const std::string &key) const { return *atptr(key); }
 
-    static constexpr Value *Parse(Stream &stream);
-    static constexpr Value *Parse(const std::string &text) { 
-        Stream stream { text };
-        return Parse(stream);
-    }
-
 protected:
     static constexpr Value *ParseIntegerOrFloat(Stream &stream);
 
@@ -688,6 +682,10 @@ protected:
         return value;
     }
 
+protected:
+    friend class Ref;
+    static constexpr Value *Parse(Stream &stream);
+
 };
 
 class Null : public Value {
@@ -752,31 +750,72 @@ protected:
     const Value &GetConst() const { return *obj; }
 
 public:
-    constexpr Ref(const std::string &text) : obj { Value::Parse(text) } { }
-    constexpr Ref(Stream &text) : obj { Value::Parse(text) } { }
-    constexpr Ref(Value *obj) : obj { obj } { }
-    constexpr Ref();
     Ref(const Ref &) = delete;
 
     Ref &operator=(const Ref &) = delete;
 
+    /// @brief Return type of value. It can be one of Null, Bool, NumberInt, NumberFloat, String, Member, member, Array, Object or Error.
+    /// @return Value type
     constexpr inline type GetType() const { return obj->GetType(); }
+
+    /// @brief Check if value is type::Null.
+    /// @return true if type is type::Null else false
     constexpr inline bool IsNull() const { return obj->IsNull(); }
+
+    /// @brief Check if value is type::Error.
+    /// @return true if type is type::Error else false
+    constexpr inline bool IsError() const { return obj->IsError(); }
+
+    /// @brief Check if value is type::Bool.
+    /// @return true if type is type::Bool else false
     constexpr inline bool IsBool() const { return obj->IsBool(); }
+
+    /// @brief Check if value is type::NumberInt.
+    /// @return true if type is type::NumberInt else false
     constexpr inline bool IsInteger() const { return obj->IsInteger(); }
+
+    /// @brief Check if value is type::NumberFloat.
+    /// @return true if type is type::NumberFloat else false
     constexpr inline bool IsFloat() const { return obj->IsFloat(); }
+
+    /// @brief Check if value is type::String.
+    /// @return true if type is type::String else false
     constexpr inline bool IsString() const { return obj->IsString(); }
+
+    /// @brief Check if value is type::Member.
+    /// @return true if type is type::Member else false
     constexpr inline bool IsMember() const { return obj->IsMember(); }
+
+    /// @brief Check if value is type::Array.
+    /// @return true if type is type::Array else false
     constexpr inline bool IsArray() const { return obj->IsArray(); }
+
+    /// @brief Check if value is type::Object.
+    /// @return true if type is type::Object else false
     constexpr inline bool IsObject() const { return obj->IsObject(); }
 
+    /// @brief Get value at given index. This will work only for array or object.
+    /// @param  index Position at which values is stored.
+    /// @return pointer to value if found or pointer to value of type error.
     constexpr inline Value *atptr(size_t index) const { return obj->atptr(index); }
+
+    /// @brief Get value in map at given key, for array it tries to convert it to integer and return values at that index. This will work only for array or object.
+    /// @param  key Key for values.
+    /// @return pointer to value if found or pointer to value of type error.
     constexpr inline Value *atptr(const std::string &key) const { return obj->atptr(key); }
     constexpr inline Value &at(size_t index) const { return obj->at(index); }
     constexpr inline Value &at(const std::string &key) const { return obj->at(key); }
     constexpr inline Value &operator[](size_t index) const { return obj->operator[](index); }
     constexpr inline Value &operator[](const std::string &key) const { return obj->operator[](key); }
+
+    /// @brief Deep comparison of two values.
+    /// @param other Right hand side value
+    /// @return true if both values are same.
     constexpr inline bool operator==(const Value& other) const { return obj->operator==(other); }
+
+    /// @brief Deep comparison of two values.
+    /// @param other Right hand side value
+    /// @return true if both values are same.
     constexpr inline bool operator==(const Ref& other) const { return obj->operator==(*other.obj); }
 
     constexpr inline bool &GetBool() { return obj->GetBool(); }
@@ -857,6 +896,17 @@ public:
     constexpr Value &Query(const ChT (&text)[size + 1]) { return Query(std::string {text, size}, '/'); }
     template <typename ChT, const size_t size>
     constexpr const Value &Query(const ChT (&text)[size + 1]) const { return Query(std::string {text, size}, '/'); }
+
+private:
+    friend constexpr Ref Parse(const auto *text);
+    friend constexpr Ref Parse(const auto *begin, const auto *end);
+    friend constexpr Ref Parse(const std::string &text);
+
+    constexpr Ref(Stream &text) : obj { Value::Parse(text) } { }
+    constexpr Ref(Value *obj) : obj { obj } { }
+
+public:
+    constexpr Ref();
 };
 
 class Bool : public Value {
@@ -1853,14 +1903,23 @@ constexpr Value &Ref::QueryInternal(const std::string &text, const auto &delimit
 
 constexpr Ref::Ref() : obj { new Object { } } { }
 
-constexpr inline auto Parse(const std::string &text) { return Ref { text }; }
-constexpr inline auto Parse(const char *text) { 
-    Stream strtext { text };
+constexpr inline Ref Parse(const std::string &begin) {
+    Stream strtext { begin };
     return Ref { strtext };
 }
 
-constexpr inline auto Parse(const auto *begin, const auto *end) {
+constexpr inline Ref Parse(const auto *begin, const auto *end) {
     Stream strtext { begin, end };
+    return Ref { strtext };
+}
+
+constexpr inline Ref Parse(const auto *begin, size_t size) {
+    Stream strtext { begin, size };
+    return Ref { strtext };
+}
+
+constexpr inline Ref Parse(const auto *text) { 
+    Stream strtext { text };
     return Ref { strtext };
 }
 
