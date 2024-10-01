@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 
 project(JSON)
 
+# find_package must be after project
 find_package(GTest CONFIG REQUIRED)
 
 enable_testing()
