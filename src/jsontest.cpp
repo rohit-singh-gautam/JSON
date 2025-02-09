@@ -208,7 +208,7 @@ TEST(JSONTest, ObjectTest) {
 }
 
 TEST(JSONTest, JSONFile) {
-    const std::string jsonstr = GetFromFile("./resources/simpleprofile.json");
+    const std::string jsonstr = GetFromFile("../resources/simpleprofile.json");
     auto json = rohit::json::Parse(jsonstr);
     std::vector<std::string> courses { "Math", "Physics", "Chemistry" };
     auto jsoncourses = json["courses"].GetStringVector(false);

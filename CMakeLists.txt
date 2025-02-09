@@ -7,7 +7,11 @@ find_package(GTest CONFIG REQUIRED)
 
 enable_testing()
 
-add_compile_options(-Wall -Werror -Wpedantic -Wextra -Weffc++ -Wsuggest-override -fanalyzer -Wno-analyzer-malloc-leak)
+if (UNIX)
+add_compile_options(-Wall -Werror -Wpedantic -Wextra -Weffc++ -Wsuggest-override) # -fanalyzer -Wno-analyzer-malloc-leak
+elseif (MSVC)
+add_compile_options(/W4 /WX)
+endif()
 
 add_executable(JSONTest src/jsontest.cpp)
 
