@@ -17,7 +17,7 @@ add_executable(JSONTest src/jsontest.cpp)
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-set_property(TARGET JSONTest PROPERTY CXX_STANDARD 23)
+target_compile_features(JSONTest PRIVATE cxx_std_23)
 
 target_link_libraries(JSONTest PRIVATE GTest::gtest_main)
 

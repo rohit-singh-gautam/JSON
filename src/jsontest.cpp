@@ -23,8 +23,6 @@
 #include <sstream>
 #include <exception>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wanalyzer-malloc-leak"
 const std::vector<std::string> samplejsonlist {
     "{\n"
     "    \"Key1\" : {\n"
@@ -49,7 +47,6 @@ const std::vector<std::string> samplejsonlist {
     "    }\n"
     "}\n",
 };
-#pragma GCC diagnostic pop
 
 std::string GetFromFile(const std::filesystem::path &path) {
     if (!std::filesystem::is_regular_file(path)) {
@@ -213,18 +210,6 @@ TEST(JSONTest, JSONFile) {
     std::vector<std::string> courses { "Math", "Physics", "Chemistry" };
     auto jsoncourses = json["courses"].GetStringVector(false);
     EXPECT_TRUE(courses == jsoncourses);
-}
-
-constexpr int ConstExprJSON() {
-    const std::string value { "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]"};
-    auto json = rohit::json::Parse(value);
-    int int_value = json[2].GetInt();
-    return int_value;
-}
-
-TEST(JSONTest, ConstExpr) {
-    int value = ConstExprJSON();
-    EXPECT_TRUE(value == 2);
 }
 
 TEST(JSONTest, JSONQuery) {
