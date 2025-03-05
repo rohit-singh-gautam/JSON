@@ -67,7 +67,7 @@ static constexpr write_format compress {
 };
 
 static constexpr write_format beautify { 
-    .newline_before_braces_open = false,
+    .newline_before_braces_open = true,
     .newline_after_braces_open = true,
     .newline_before_braces_close = true,
     .newline_after_braces_close = false,
