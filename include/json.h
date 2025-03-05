@@ -1493,7 +1493,7 @@ public:
     Reverse_Iterator_const rend() const override { return Reverse_Iterator_const { new ObjectConstReverseIterator { values.rend() } }; }
 
     void write(std::string &text, write_format_data &data) const override {
-        if (data.format.newline_before_bracket_open && !data.newline_added) {
+        if (data.format.newline_before_braces_open && !data.newline_added) {
             text += '\n';
             text += data.prefix;
         }
